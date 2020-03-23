@@ -32,6 +32,20 @@ const w = s.attr().width;
 const h = s.attr().height;
 console.log(`SVG size: ${w} x ${h}`);
 
+const assignment = {
+	MOUNTAIN: 'M',
+	VALLEY: 'V',
+	BORDER: 'B',
+	UNKNOWN: 'U'
+}
+
+// switch (a) {
+// 	case assignment.MOUNTAIN:
+// 	case assignment.VALLEY:
+// 	case assignment.BORDER:
+// 	case assignment.UNKNOWN
+// }
+
 // Stuff
 let dragging = false;
 let vertices = [];
