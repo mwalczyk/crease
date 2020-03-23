@@ -1,0 +1,53 @@
+svg {
+	border: 1px solid black;
+}
+	
+html, body { 
+	margin: 0; 
+}
+
+.container {
+	display: flex;	
+}
+
+.item {
+	
+}
+
+#controls {
+	background-color: hsl(40, 32%, 91%);
+}
+
+svg .vertex {
+	fill: hsl(330, 50%, 80%);
+}
+
+svg .vertex:hover {
+	fill: hsl(330, 50%, 70%);
+}
+
+svg .vertex-selected {
+	fill: hsl(330, 50%, 60%);
+}
+
+svg .vertex-selected:hover {
+	fill: hsl(330, 50%, 50%);
+}
+
+svg .crease {
+	stroke: hsl(240, 10%, 70%);
+	stroke-width: 6;
+	stroke-linecap: round;
+}
+
+svg .crease:hover { 
+	stroke: hsl(240, 10%, 60%);
+}
+
+svg .crease-selected {
+	stroke: hsl(240, 10%, 50%);
+}
+
+svg .crease-selected:hover {
+	stroke: hsl(240, 10%, 50%);
+}
