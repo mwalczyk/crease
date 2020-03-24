@@ -41,22 +41,26 @@ const creaseAssignment = {
 	VALLEY: 'V',
 	BORDER: 'B',
 	UNKNOWN: 'U'
-}
+};
 
 const vertexType = {
 	GRID: 'grid',
 	ACTIVE: 'active'
-}
+};
 
-// switch (a) {
-// 	case assignment.MOUNTAIN:
-// 	case assignment.VALLEY:
-// 	case assignment.BORDER:
-// 	case assignment.UNKNOWN
-// }
+const selectionModes = {
+	VERTEX: 'vertex',
+	CREASE: 'crease'
+};
 
-// Stuff
-let dragging = false;
+const editModes = {
+	LINE_SEGMENT: 'lineSegment',
+	INFINITE_LINE: 'infiniteLine',
+	BISECTOR: 'bisector'
+};
+
+let select = selectionModes.VERTEX;
+let mode = editModes.LINE_SEGMENT;
 let vertices = [];
 let creases = [];
 
@@ -67,6 +71,15 @@ const vertexDrawRadius = 6;
 
 function deselectAllVertices() {
 	s.selectAll('.vertex').forEach(el => el.removeClass('vertex-selected'));
+}
+
+function deselectAllCreases() {
+	s.selectAll('.crease').forEach(el => el.removeClass('crease-selected'));
+}
+
+function deselectAll() {
+	deselectAllVertices()
+	deselectAllCreases()
 }
 
 // Finds the index of the vertex that is closest to the specified 
@@ -86,10 +99,20 @@ function findClosestVertexTo(x, y) {
 	return [index, distance];
 }
 
+// Crease callback functions
+let callbackCreaseClicked = function() {
+	if (select == selectionModes.CREASE) {
+		deselectAllCreases();
+		this.addClass('crease-selected');
+	}
+}
+
 // Vertex callback functions
 let callbackVertexClicked = function() {
-	deselectAllVertices();
-	this.addClass('vertex-selected');
+	if (select == selectionModes.VERTEX) {
+		deselectAllVertices();
+		this.addClass('vertex-selected');
+	}
 }
 let callbackVertexHoverEnter = function() {
 	this.attr({'r': vertexDrawRadius * 1.5});
@@ -110,7 +133,7 @@ let callbackVertexDragStart = function() {
 						this.getBBox().cy, 
 						this.getBBox().cx, 
 						this.getBBox().cy);
-
+	crease.click(callbackCreaseClicked);
 	crease.addClass('crease');
 	creases.push(crease);
 }
@@ -123,7 +146,7 @@ let callbackVertexDragStop = function() {
 		creases[creases.length - 1].attr().y2
 	);
 
-	if (distance < threshold) {
+	if (distance < threshold && index != this.data('index')) {
 		console.log(`Connecting to vertex: ${index}`);
 		const vertices = Array.from(s.selectAll('.vertex'));
 		creases[creases.length - 1].attr({
@@ -137,16 +160,34 @@ let callbackVertexDragStop = function() {
 	}
 }
 
+function addVertex(x, y, type) {
+	const label = Snap.parse(`<title>ID: ${vertices.length}</title>`);
+
+	let vertex = s.circle(x, y, vertexDrawRadius);
+	vertex.data('type', type);
+	vertex.data('index', vertices.length);
+	vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
+	vertex.click(callbackVertexClicked);
+	vertex.drag(callbackVertexDragMove, callbackVertexDragStart, callbackVertexDragStop);
+	vertex.addClass('vertex');
+	vertex.append(label);
+
+	vertices.push(vertex)
+}
+
 function constructGrid() {
-	//
+	// Remove all "grid" vertices, keeping any user-generated, "active" vertices in tact
 	vertices = vertices.filter(v => {
 		// Remove the SVG element
 		if (v.data('type') == vertexType.GRID) {
 			v.remove();
 			return false;
-		} else {
-			return true;
-		}
+		} 
+		return true;
+	});
+	vertices.forEach((v, i) => {
+		v.data('index', i);
+		console.log(v.data('index'));
 	});
 
 	const gridSizeX = w / 2;
@@ -161,33 +202,36 @@ function constructGrid() {
 			let posX = percentX * gridSizeX + paperCenterX / 2;
 			let posY = percentY * gridSizeY + paperCenterY / 2;
 
-			let vertex = s.circle(posX, posY, vertexDrawRadius);
-			vertex.data('type', vertexType.GRID)
-			vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
-			vertex.click(callbackVertexClicked);
-			vertex.drag(callbackVertexDragMove, callbackVertexDragStart, callbackVertexDragStop);
-			vertex.addClass('vertex');
+			let index = y * gridDivsX + x;
 
-			vertices.push(vertex)
+			addVertex(posX, posY, vertexType.GRID);
 		}
 	}
 }
 
 const slider = document.getElementById('divisions');
-
 slider.onchange = function() {
     gridDivsX = this.value;
     gridDivsY = this.value;
     constructGrid();
 };
 
+const editModeButtons = document.getElementsByClassName('edit-modes');
+for (var index = 0; index < editModeButtons.length; index++) {
+	editModeButtons[index].onclick = function() {
+		deselectAll();
+		mode = this.value;
+	};
+}
+
+const selectionModeButtons = document.getElementsByClassName('selection-modes');
+for (var index = 0; index < selectionModeButtons.length; index++) {
+	selectionModeButtons[index].onclick = function() {
+		deselectAll();
+		select = this.value;
+	};
+}
+
+// Start the application
 constructGrid();
-
-// let line = s.line(0, 0, w, h);
-
-// line.attr({
-// 	fill: 'coral',
-// 	stroke: 'coral',
-// 	strokeWidth: 10
-// });
 

@@ -11,10 +11,32 @@
 	<div class='container'>
 
   	<div class='item' id='controls'>
-  		<button>Here A</button>
-  		<button>Here B</button>
-  		<button>Here C</button>
+  		<p>Edit Mode:</p>
+  		<div>
+		  	<input type='radio' class='edit-modes' id='line-segment' name='edit-modes' value='lineSegment' checked>
+		  	<label for='line-segment'>Line Segment</label>
+			</div>
+			<div>
+		  	<input type='radio' class='edit-modes' id='infinite-line' name='edit-modes' value='infiniteLine'>
+		  	<label for='infinite-line'>Infinite Line</label>
+			</div>
+			<div>
+		  	<input type='radio' class='edit-modes' id='bisector' name='edit-modes' value='bisector'>
+		  	<label for='bisector'>Bisector</label>
+			</div>
+
+			<p>Selection Mode:</p>
+  		<div>
+		  	<input type='radio' class='selection-modes' id='vertex' name='selection-modes' value='vertex' checked>
+		  	<label for='vertex'>Vertex</label>
+			</div>
+			<div>
+		  	<input type='radio' class='selection-modes' id='crease' name='selection-modes' value='crease'>
+		  	<label for='crease'>Crease</label>
+			</div>
+
   		<input type='range' class='slider' id='divisions' min='2' max='20' value='5'>
+  		
   	</div>
 
   	<div class='item' id='graphics'>

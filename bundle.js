@@ -58,15 +58,18 @@ var creaseAssignment = {
 var vertexType = {
   GRID: 'grid',
   ACTIVE: 'active'
-}; // switch (a) {
-// 	case assignment.MOUNTAIN:
-// 	case assignment.VALLEY:
-// 	case assignment.BORDER:
-// 	case assignment.UNKNOWN
-// }
-// Stuff
-
-var dragging = false;
+};
+var selectionModes = {
+  VERTEX: 'vertex',
+  CREASE: 'crease'
+};
+var editModes = {
+  LINE_SEGMENT: 'lineSegment',
+  INFINITE_LINE: 'infiniteLine',
+  BISECTOR: 'bisector'
+};
+var select = selectionModes.VERTEX;
+var mode = editModes.LINE_SEGMENT;
 var vertices = [];
 var creases = []; // Create the grid
 
@@ -78,6 +81,17 @@ function deselectAllVertices() {
   s.selectAll('.vertex').forEach(function (el) {
     return el.removeClass('vertex-selected');
   });
+}
+
+function deselectAllCreases() {
+  s.selectAll('.crease').forEach(function (el) {
+    return el.removeClass('crease-selected');
+  });
+}
+
+function deselectAll() {
+  deselectAllVertices();
+  deselectAllCreases();
 } // Finds the index of the vertex that is closest to the specified 
 // coordinates 
 //
@@ -94,12 +108,22 @@ function findClosestVertexTo(x, y) {
   var index = distances.indexOf(Math.min.apply(Math, distances));
   var distance = distances[index];
   return [index, distance];
-} // Vertex callback functions
+} // Crease callback functions
+
+
+var callbackCreaseClicked = function callbackCreaseClicked() {
+  if (select == selectionModes.CREASE) {
+    deselectAllCreases();
+    this.addClass('crease-selected');
+  }
+}; // Vertex callback functions
 
 
 var callbackVertexClicked = function callbackVertexClicked() {
-  deselectAllVertices();
-  this.addClass('vertex-selected');
+  if (select == selectionModes.VERTEX) {
+    deselectAllVertices();
+    this.addClass('vertex-selected');
+  }
 };
 
 var callbackVertexHoverEnter = function callbackVertexHoverEnter() {
@@ -124,6 +148,7 @@ var callbackVertexDragMove = function callbackVertexDragMove(dx, dy, x, y) {
 var callbackVertexDragStart = function callbackVertexDragStart() {
   console.log('Starting drag...');
   var crease = s.line(this.getBBox().cx, this.getBBox().cy, this.getBBox().cx, this.getBBox().cy);
+  crease.click(callbackCreaseClicked);
   crease.addClass('crease');
   creases.push(crease);
 };
@@ -137,7 +162,7 @@ var callbackVertexDragStop = function callbackVertexDragStop() {
       index = _findClosestVertexTo2[0],
       distance = _findClosestVertexTo2[1];
 
-  if (distance < threshold) {
+  if (distance < threshold && index != this.data('index')) {
     console.log("Connecting to vertex: ".concat(index));
 
     var _vertices = Array.from(s.selectAll('.vertex'));
@@ -153,16 +178,33 @@ var callbackVertexDragStop = function callbackVertexDragStop() {
   }
 };
 
+function addVertex(x, y, type) {
+  var label = Snap.parse("<title>ID: ".concat(vertices.length, "</title>"));
+  var vertex = s.circle(x, y, vertexDrawRadius);
+  vertex.data('type', type);
+  vertex.data('index', vertices.length);
+  vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
+  vertex.click(callbackVertexClicked);
+  vertex.drag(callbackVertexDragMove, callbackVertexDragStart, callbackVertexDragStop);
+  vertex.addClass('vertex');
+  vertex.append(label);
+  vertices.push(vertex);
+}
+
 function constructGrid() {
-  //
+  // Remove all "grid" vertices, keeping any user-generated, "active" vertices in tact
   vertices = vertices.filter(function (v) {
     // Remove the SVG element
     if (v.data('type') == vertexType.GRID) {
       v.remove();
       return false;
-    } else {
-      return true;
     }
+
+    return true;
+  });
+  vertices.forEach(function (v, i) {
+    v.data('index', i);
+    console.log(v.data('index'));
   });
   var gridSizeX = w / 2;
   var gridSizeY = h / 2;
@@ -175,13 +217,10 @@ function constructGrid() {
       var percentY = y / (gridDivsY - 1);
       var posX = percentX * gridSizeX + paperCenterX / 2;
       var posY = percentY * gridSizeY + paperCenterY / 2;
-      var vertex = s.circle(posX, posY, vertexDrawRadius);
-      vertex.data('type', vertexType.GRID);
-      vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
-      vertex.click(callbackVertexClicked);
-      vertex.drag(callbackVertexDragMove, callbackVertexDragStart, callbackVertexDragStop);
-      vertex.addClass('vertex');
-      vertices.push(vertex);
+
+      var _index = y * gridDivsX + x;
+
+      addVertex(posX, posY, vertexType.GRID);
     }
   }
 }
@@ -194,12 +233,26 @@ slider.onchange = function () {
   constructGrid();
 };
 
-constructGrid(); // let line = s.line(0, 0, w, h);
-// line.attr({
-// 	fill: 'coral',
-// 	stroke: 'coral',
-// 	strokeWidth: 10
-// });
+var editModeButtons = document.getElementsByClassName('edit-modes');
+
+for (var index = 0; index < editModeButtons.length; index++) {
+  editModeButtons[index].onclick = function () {
+    deselectAll();
+    mode = this.value;
+  };
+}
+
+var selectionModeButtons = document.getElementsByClassName('selection-modes');
+
+for (var index = 0; index < selectionModeButtons.length; index++) {
+  selectionModeButtons[index].onclick = function () {
+    deselectAll();
+    select = this.value;
+  };
+} // Start the application
+
+
+constructGrid();
 
 },{"snapsvg":3}],2:[function(require,module,exports){
 // Copyright (c) 2017 Adobe Systems Incorporated. All rights reserved.

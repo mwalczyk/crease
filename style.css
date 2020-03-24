@@ -45,9 +45,9 @@ svg .crease:hover {
 }
 
 svg .crease-selected {
-	stroke: hsl(240, 10%, 50%);
+	stroke: hsl(48, 100%, 50%);
 }
 
 svg .crease-selected:hover {
-	stroke: hsl(240, 10%, 50%);
+	stroke: hsl(48, 100%, 40%);
 }
