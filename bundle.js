@@ -1,7 +1,19 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
-const snapsvg = require('snapsvg')
+"use strict";
 
-// To install:
+function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest(); }
+
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+
+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(n); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+
+function _iterableToArrayLimit(arr, i) { if (typeof Symbol === "undefined" || !(Symbol.iterator in Object(arr))) return; var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"] != null) _i["return"](); } finally { if (_d) throw _e; } } return _arr; }
+
+function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
+
+var snapsvg = require('snapsvg'); // To install:
 // 
 // 1) First, in this directory run:
 //
@@ -12,6 +24,8 @@ const snapsvg = require('snapsvg')
 //
 // 		npm install -g browserify
 // 		npm install -g watchify
+//		npm install --save-dev babelify @babel/core
+//		npm install --save-dev @babel/preset-env
 //
 // Some references:
 //
@@ -20,142 +34,172 @@ const snapsvg = require('snapsvg')
 //		[3](https://gist.github.com/osvik/0185cb4381b35aad3d3e1f5438ca5ca4#create-objects-with-snap)
 //		[4](https://www.w3schools.com/colors/colors_picker.asp)
 //		[5](https://css-tricks.com/snippets/css/a-guide-to-flexbox/)
+//		[6](https://www.sohamkamani.com/blog/2017/08/21/enums-in-javascript/)
+//		[7](https://gist.github.com/osvik/0185cb4381b35aad3d3e1f5438ca5ca4)
 //
 // To run:
 //
 // 		watchify index.js -o bundle.js
 //
-
 // Create the `Element` object that will house all of the other SVGs
+
+
 console.log('Starting application...');
-const s = Snap('#svg');
-const w = s.attr().width;
-const h = s.attr().height;
-console.log(`SVG size: ${w} x ${h}`);
-
-const assignment = {
-	MOUNTAIN: 'M',
-	VALLEY: 'V',
-	BORDER: 'B',
-	UNKNOWN: 'U'
-}
-
-// switch (a) {
+var s = Snap('#svg');
+var w = s.attr().width;
+var h = s.attr().height;
+console.log("SVG size: ".concat(w, " x ").concat(h));
+var creaseAssignment = {
+  MOUNTAIN: 'M',
+  VALLEY: 'V',
+  BORDER: 'B',
+  UNKNOWN: 'U'
+};
+var vertexType = {
+  GRID: 'grid',
+  ACTIVE: 'active'
+}; // switch (a) {
 // 	case assignment.MOUNTAIN:
 // 	case assignment.VALLEY:
 // 	case assignment.BORDER:
 // 	case assignment.UNKNOWN
 // }
-
 // Stuff
-let dragging = false;
-let vertices = [];
-let creases = [];
 
-// Create the grid
-const gridDivsX = 5;
-const gridDivsY = 5;
-const gridSizeX = w / 2;
-const gridSizeY = h / 2;
-const paperCenterX = gridSizeX;
-const paperCenterY = gridSizeY; 
-const vertexDrawRadius = 6;
+var dragging = false;
+var vertices = [];
+var creases = []; // Create the grid
+
+var gridDivsX = 5;
+var gridDivsY = 5;
+var vertexDrawRadius = 6;
 
 function deselectAllVertices() {
-	s.selectAll('.vertex').forEach(el => el.removeClass('vertex-selected'));
-}
-
-// Finds the index of the vertex that is closest to the specified 
+  s.selectAll('.vertex').forEach(function (el) {
+    return el.removeClass('vertex-selected');
+  });
+} // Finds the index of the vertex that is closest to the specified 
 // coordinates 
 //
 // TODO: use `Snap.path.isPointInsideBBox(bbox, x, y)` instead?
+
+
 function findClosestVertexTo(x, y) {
-	// We do this because `selectAll()` actually returns an `HTMLCollection` 
-	// object, not an array
-	const vertices = Array.from(s.selectAll('.vertex'));
-	const distances = vertices.map(el => {
-    	return Math.hypot(el.getBBox().cx - x, el.getBBox().cy - y)
-	});
-	const index = distances.indexOf(Math.min.apply(Math, distances));
-	const distance = distances[index];
+  // We do this because `selectAll()` actually returns an `HTMLCollection` 
+  // object, not an array
+  var vertices = Array.from(s.selectAll('.vertex'));
+  var distances = vertices.map(function (el) {
+    return Math.hypot(el.getBBox().cx - x, el.getBBox().cy - y);
+  });
+  var index = distances.indexOf(Math.min.apply(Math, distances));
+  var distance = distances[index];
+  return [index, distance];
+} // Vertex callback functions
 
-	return [index, distance];
+
+var callbackVertexClicked = function callbackVertexClicked() {
+  deselectAllVertices();
+  this.addClass('vertex-selected');
+};
+
+var callbackVertexHoverEnter = function callbackVertexHoverEnter() {
+  this.attr({
+    'r': vertexDrawRadius * 1.5
+  });
+};
+
+var callbackVertexHoverExit = function callbackVertexHoverExit() {
+  this.attr({
+    'r': vertexDrawRadius
+  });
+};
+
+var callbackVertexDragMove = function callbackVertexDragMove(dx, dy, x, y) {
+  creases[creases.length - 1].attr({
+    'x2': this.getBBox().cx + dx,
+    'y2': this.getBBox().cy + dy
+  });
+};
+
+var callbackVertexDragStart = function callbackVertexDragStart() {
+  console.log('Starting drag...');
+  var crease = s.line(this.getBBox().cx, this.getBBox().cy, this.getBBox().cx, this.getBBox().cy);
+  crease.addClass('crease');
+  creases.push(crease);
+};
+
+var callbackVertexDragStop = function callbackVertexDragStop() {
+  console.log('Ending drag...');
+  var threshold = 20;
+
+  var _findClosestVertexTo = findClosestVertexTo(creases[creases.length - 1].attr().x2, creases[creases.length - 1].attr().y2),
+      _findClosestVertexTo2 = _slicedToArray(_findClosestVertexTo, 2),
+      index = _findClosestVertexTo2[0],
+      distance = _findClosestVertexTo2[1];
+
+  if (distance < threshold) {
+    console.log("Connecting to vertex: ".concat(index));
+
+    var _vertices = Array.from(s.selectAll('.vertex'));
+
+    creases[creases.length - 1].attr({
+      'x2': _vertices[index].getBBox().cx,
+      'y2': _vertices[index].getBBox().cy
+    });
+  } else {
+    console.log('Failed to connect line to vertex...deleting');
+    var activeCrease = creases.pop();
+    activeCrease.remove();
+  }
+};
+
+function constructGrid() {
+  //
+  vertices = vertices.filter(function (v) {
+    // Remove the SVG element
+    if (v.data('type') == vertexType.GRID) {
+      v.remove();
+      return false;
+    } else {
+      return true;
+    }
+  });
+  var gridSizeX = w / 2;
+  var gridSizeY = h / 2;
+  var paperCenterX = gridSizeX;
+  var paperCenterY = gridSizeY;
+
+  for (var y = 0; y < gridDivsY; y++) {
+    for (var x = 0; x < gridDivsX; x++) {
+      var percentX = x / (gridDivsX - 1);
+      var percentY = y / (gridDivsY - 1);
+      var posX = percentX * gridSizeX + paperCenterX / 2;
+      var posY = percentY * gridSizeY + paperCenterY / 2;
+      var vertex = s.circle(posX, posY, vertexDrawRadius);
+      vertex.data('type', vertexType.GRID);
+      vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
+      vertex.click(callbackVertexClicked);
+      vertex.drag(callbackVertexDragMove, callbackVertexDragStart, callbackVertexDragStop);
+      vertex.addClass('vertex');
+      vertices.push(vertex);
+    }
+  }
 }
 
-// Vertex callback functions
-let callbackVertexClicked = function() {
-	deselectAllVertices();
-	this.addClass('vertex-selected');
-}
-let callbackVertexHoverEnter = function() {
-	this.attr({'r': vertexDrawRadius * 1.5});
-}
-let callbackVertexHoverExit = function() {
-	this.attr({'r': vertexDrawRadius});
-}
-let callbackVertexDragMove = function(dx, dy, x, y) {
-	creases[creases.length - 1].attr({
-		'x2': this.getBBox().cx + dx, 
-		'y2': this.getBBox().cy + dy
-	});
-}
-let callbackVertexDragStart = function() {
-	console.log('Starting drag...')
+var slider = document.getElementById('divisions');
 
-	let crease = s.line(this.getBBox().cx, 
-						this.getBBox().cy, 
-						this.getBBox().cx, 
-						this.getBBox().cy);
+slider.onchange = function () {
+  gridDivsX = this.value;
+  gridDivsY = this.value;
+  constructGrid();
+};
 
-	crease.addClass('crease');
-	creases.push(crease);
-}
-let callbackVertexDragStop = function() {
-	console.log('Ending drag...')
-
-	const threshold = 20;
-	const [index, distance] = findClosestVertexTo(
-		creases[creases.length - 1].attr().x2,
-		creases[creases.length - 1].attr().y2
-	);
-
-	if (distance < threshold) {
-		console.log(`Connecting to vertex: ${index}`);
-		const vertices = Array.from(s.selectAll('.vertex'));
-		creases[creases.length - 1].attr({
-			'x2': vertices[index].getBBox().cx,
-			'y2': vertices[index].getBBox().cy
-		});
-	} else {
-		console.log('Failed to connect line to vertex...deleting');
-		let activeCrease = creases.pop();
-		activeCrease.remove();
-	}
-}
-
-for (var y = 0; y < gridDivsY; y++) {
-	for (var x = 0; x < gridDivsX; x++) {
-		let percentX = x / (gridDivsX - 1);
-		let percentY = y / (gridDivsY - 1);
-		let posX = percentX * gridSizeX + paperCenterX / 2;
-		let posY = percentY * gridSizeY + paperCenterY / 2;
-
-		let vertex = s.circle(posX, posY, vertexDrawRadius);
-		vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
-		vertex.click(callbackVertexClicked);
-		vertex.drag(callbackVertexDragMove, callbackVertexDragStart, callbackVertexDragStop);
-		vertex.addClass('vertex');
-	}
-}
-
-// let line = s.line(0, 0, w, h);
-
+constructGrid(); // let line = s.line(0, 0, w, h);
 // line.attr({
 // 	fill: 'coral',
 // 	stroke: 'coral',
 // 	strokeWidth: 10
 // });
-
 
 },{"snapsvg":3}],2:[function(require,module,exports){
 // Copyright (c) 2017 Adobe Systems Incorporated. All rights reserved.

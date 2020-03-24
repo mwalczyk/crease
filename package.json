@@ -4,11 +4,17 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "bundle": "browserify index.js -t [ babelify --presets [ @babel/preset-env ] ] -o bundle.js",
+    "bundle-watch": "watchify index.js -t [ babelify --presets [ @babel/preset-env ] ] -o bundle.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "snapsvg": "^0.5.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.9.0",
+    "@babel/preset-env": "^7.9.0",
+    "babelify": "^10.0.0"
   }
 }

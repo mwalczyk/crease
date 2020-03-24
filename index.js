@@ -11,6 +11,8 @@ const snapsvg = require('snapsvg')
 //
 // 		npm install -g browserify
 // 		npm install -g watchify
+//		npm install --save-dev babelify @babel/core
+//		npm install --save-dev @babel/preset-env
 //
 // Some references:
 //
@@ -19,6 +21,8 @@ const snapsvg = require('snapsvg')
 //		[3](https://gist.github.com/osvik/0185cb4381b35aad3d3e1f5438ca5ca4#create-objects-with-snap)
 //		[4](https://www.w3schools.com/colors/colors_picker.asp)
 //		[5](https://css-tricks.com/snippets/css/a-guide-to-flexbox/)
+//		[6](https://www.sohamkamani.com/blog/2017/08/21/enums-in-javascript/)
+//		[7](https://gist.github.com/osvik/0185cb4381b35aad3d3e1f5438ca5ca4)
 //
 // To run:
 //
@@ -32,11 +36,16 @@ const w = s.attr().width;
 const h = s.attr().height;
 console.log(`SVG size: ${w} x ${h}`);
 
-const assignment = {
+const creaseAssignment = {
 	MOUNTAIN: 'M',
 	VALLEY: 'V',
 	BORDER: 'B',
 	UNKNOWN: 'U'
+}
+
+const vertexType = {
+	GRID: 'grid',
+	ACTIVE: 'active'
 }
 
 // switch (a) {
@@ -52,12 +61,8 @@ let vertices = [];
 let creases = [];
 
 // Create the grid
-const gridDivsX = 5;
-const gridDivsY = 5;
-const gridSizeX = w / 2;
-const gridSizeY = h / 2;
-const paperCenterX = gridSizeX;
-const paperCenterY = gridSizeY; 
+let gridDivsX = 5;
+let gridDivsY = 5;
 const vertexDrawRadius = 6;
 
 function deselectAllVertices() {
@@ -132,20 +137,51 @@ let callbackVertexDragStop = function() {
 	}
 }
 
-for (var y = 0; y < gridDivsY; y++) {
-	for (var x = 0; x < gridDivsX; x++) {
-		let percentX = x / (gridDivsX - 1);
-		let percentY = y / (gridDivsY - 1);
-		let posX = percentX * gridSizeX + paperCenterX / 2;
-		let posY = percentY * gridSizeY + paperCenterY / 2;
+function constructGrid() {
+	//
+	vertices = vertices.filter(v => {
+		// Remove the SVG element
+		if (v.data('type') == vertexType.GRID) {
+			v.remove();
+			return false;
+		} else {
+			return true;
+		}
+	});
 
-		let vertex = s.circle(posX, posY, vertexDrawRadius);
-		vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
-		vertex.click(callbackVertexClicked);
-		vertex.drag(callbackVertexDragMove, callbackVertexDragStart, callbackVertexDragStop);
-		vertex.addClass('vertex');
+	const gridSizeX = w / 2;
+	const gridSizeY = h / 2;
+	const paperCenterX = gridSizeX;
+	const paperCenterY = gridSizeY; 
+
+	for (var y = 0; y < gridDivsY; y++) {
+		for (var x = 0; x < gridDivsX; x++) {
+			let percentX = x / (gridDivsX - 1);
+			let percentY = y / (gridDivsY - 1);
+			let posX = percentX * gridSizeX + paperCenterX / 2;
+			let posY = percentY * gridSizeY + paperCenterY / 2;
+
+			let vertex = s.circle(posX, posY, vertexDrawRadius);
+			vertex.data('type', vertexType.GRID)
+			vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
+			vertex.click(callbackVertexClicked);
+			vertex.drag(callbackVertexDragMove, callbackVertexDragStart, callbackVertexDragStop);
+			vertex.addClass('vertex');
+
+			vertices.push(vertex)
+		}
 	}
 }
+
+const slider = document.getElementById('divisions');
+
+slider.onchange = function() {
+    gridDivsX = this.value;
+    gridDivsY = this.value;
+    constructGrid();
+};
+
+constructGrid();
 
 // let line = s.line(0, 0, w, h);
 
