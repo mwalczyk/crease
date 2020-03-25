@@ -11,7 +11,7 @@ export class Vec2 {
 	}
 
 	length() {
-		return Math.sqrt(this.x * this.y + this.y * this.y);
+		return Math.sqrt(this.x * this.x + this.y * this.y);
 	}
 
 	normalize() {

@@ -1,6 +1,7 @@
 import { PlanarGraph } from './graph.js';
 import { Vec2 } from './math.js';
 import { SelectionGroup } from './selection_group.js';
+import { calculateTriangleIncenter } from './geometry.js';
 
 const snapsvg = require('snapsvg');
 
@@ -27,6 +28,7 @@ const snapsvg = require('snapsvg');
 //		[5](https://css-tricks.com/snippets/css/a-guide-to-flexbox/)
 //		[6](https://www.sohamkamani.com/blog/2017/08/21/enums-in-javascript/)
 //		[7](https://gist.github.com/osvik/0185cb4381b35aad3d3e1f5438ca5ca4)
+// 		[8](https://www.abcdinamo.com/typefaces/whyte)
 //
 // To run:
 //
@@ -42,6 +44,13 @@ const s = Snap('#svg');
 const w = s.attr().width;
 const h = s.attr().height;
 console.log(`SVG size: ${w} x ${h}`);
+
+document.addEventListener('keydown', function(event) {
+    if (event.keyCode == 13) {
+    	console.log(g.edges);
+    }
+});
+
 
 const creaseAssignment = {
 	MOUNTAIN: 'm',
@@ -60,11 +69,6 @@ const creaseType = {
 	ACTIVE: 'active'
 };
 
-const selectionModes = {
-	VERTEX: 'vertex',
-	CREASE: 'crease'
-};
-
 const editModes = {
 	LINE_SEGMENT: 'line-segment',
 	LINE: 'line',
@@ -75,6 +79,11 @@ let selectionGroups = {
 	'line-segment': new SelectionGroup(2, 0),
 	'line': new SelectionGroup(2, 0),
 	'incenter': new SelectionGroup(3, 0)
+};
+
+const selectionModes = {
+	VERTEX: 'vertex',
+	CREASE: 'crease'
 };
 
 // Configuration for application start
@@ -116,73 +125,94 @@ function findClosestVertexTo(x, y) {
 
 // Crease callback functions
 let callbackCreaseClicked = function() {
-	if (select == selectionModes.CREASE) {
+	if (select === selectionModes.CREASE) {
 		deselectAllCreases();
 		this.addClass('crease-selected');
 	}
 }
 
+function addCrease(x0, y0, x1, y1) {
+	const label = Snap.parse(`<title>Edge: ${g.edges.length}</title>`);
+
+	let crease = s.line(x0, y0, x1, y1);
+	crease.data('index', g.edges.length);
+	crease.click(callbackCreaseClicked);
+	crease.addClass('crease');
+	crease.append(label);
+
+	return crease;
+}
+
+
+
 // Vertex callback functions
 let callbackVertexClicked = function() {
-	if (select == selectionModes.VERTEX) {
-		deselectAllVertices();
-		this.addClass('vertex-selected');
+
+	if (mode === editModes.LINE_SEGMENT) {
+
+		if (selectionGroups[mode].maybeAddVertex(this)) {
+			this.addClass('vertex-selected');
+			if (selectionGroups[mode].isComplete) {
+				addCrease(
+						selectionGroups[mode].vertices[0].getBBox().cx, 
+						selectionGroups[mode].vertices[0].getBBox().cy, 
+						selectionGroups[mode].vertices[1].getBBox().cx, 
+						selectionGroups[mode].vertices[1].getBBox().cy
+				);
+
+				// Add the new edge to the planar graph
+				g.addEdge(selectionGroups[mode].vertices[0].data('index'),
+						  selectionGroups[mode].vertices[1].data('index'));
+
+				selectionGroups[mode].clear();
+				deselectAllVertices();
+			} 
+		} 
+
+	} else if (mode === editModes.LINE) {
+
+	} else if (mode === editModes.INCENTER) {
+
+		if (selectionGroups[mode].maybeAddVertex(this)) {
+			this.addClass('vertex-selected');
+			if (selectionGroups[mode].isComplete) {
+				// Convert the selected SVG elements to vectors so that we can operate on them
+				let vertices = selectionGroups[mode].vertices.map(el => new Vec2(el.getBBox().cx, el.getBBox().cy));
+
+				// Calculate the incenter of the 3 points
+				const incenter = calculateTriangleIncenter(vertices[0], vertices[1], vertices[2]);
+
+				// Add the new vertex
+				let vertex = addVertex(incenter.x, incenter.y, vertexType.ACTIVE);
+
+				// Create 3 new creases that join each of the 3 points to their incenter
+				vertices.forEach(v => {
+					addCrease(
+						v.x, 
+						v.y, 
+						incenter.x,
+						incenter.y
+					);
+				})
+
+				// Add the new edges to the planar graph 
+				selectionGroups[mode].vertices.map(el => g.addEdge(el.data('index'), vertex.data('index')));
+
+				selectionGroups[mode].clear();
+				deselectAllVertices();
+			} 
+		} 
+
 	}
+
+	
 }
+
 let callbackVertexHoverEnter = function() {
-	this.attr({'r': vertexDrawRadius * 1.25});
+	this.attr({'r': vertexDrawRadius * 1.5});
 }
 let callbackVertexHoverExit = function() {
 	this.attr({'r': vertexDrawRadius});
-}
-let callbackVertexDragMove = function(dx, dy, x, y) {
-	activeCrease.attr({
-		'x2': this.getBBox().cx + dx, 
-		'y2': this.getBBox().cy + dy
-	});
-}
-let callbackVertexDragStart = function() {
-	console.log('Starting drag...')
-
-	const label = Snap.parse(`<title>Edge: ${g.edges.length}</title>`);
-
-	activeCrease = s.line(this.getBBox().cx, 
-						  this.getBBox().cy, 
-						  this.getBBox().cx, 
-						  this.getBBox().cy);
-	activeCrease.data('index', g.edges.length);
-	activeCrease.click(callbackCreaseClicked);
-	activeCrease.addClass('crease');
-	activeCrease.append(label);
-}
-let callbackVertexDragStop = function() {
-	console.log('Ending drag...')
-
-	const threshold = 20;
-	const [index, distance] = findClosestVertexTo(
-		activeCrease.attr().x2,
-		activeCrease.attr().y2
-	);
-
-	if (distance < threshold && index != this.data('index')) {
-		console.log(`Connecting to vertex: ${index}`);
-		const vertices = Array.from(s.selectAll('.vertex'));
-		activeCrease.attr({
-			'x2': vertices[index].getBBox().cx,
-			'y2': vertices[index].getBBox().cy
-		});
-
-		// Add this edge to the planar graph
-		const a = this.data('index');
-		const b = index;
-		g.addEdge(a, b);
-		console.log(g.edges);
-
-	} else {
-		console.log('Failed to connect line to vertex...deleting');
-		let activeCrease = creases.pop();
-		activeCrease.remove();
-	}
 }
 
 function addVertex(x, y, type) {
@@ -194,22 +224,64 @@ function addVertex(x, y, type) {
 	vertex.data('index', g.vertices.length);
 	vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
 	vertex.click(callbackVertexClicked);
-	vertex.drag(callbackVertexDragMove, callbackVertexDragStart, callbackVertexDragStop);
 	vertex.addClass('vertex');
 	vertex.append(label);
 
 	g.addVertex(new Vec2(x, y));
+
+	return vertex;
 }
 
-function addCrease(x0, y0, x1, y1) {
+// let callbackVertexDragMove = function(dx, dy, x, y) {
+// 	activeCrease.attr({
+// 		'x2': this.getBBox().cx + dx, 
+// 		'y2': this.getBBox().cy + dy
+// 	});
+// }
+// let callbackVertexDragStart = function() {
+// 	console.log('Starting drag...')
 
-}
+	
+// }
+// let callbackVertexDragStop = function() {
+// 	console.log('Ending drag...')
+
+// 	const threshold = 20;
+// 	const [index, distance] = findClosestVertexTo(
+// 		activeCrease.attr().x2,
+// 		activeCrease.attr().y2
+// 	);
+
+// 	if (distance < threshold && index != this.data('index')) {
+// 		console.log(`Connecting to vertex: ${index}`);
+// 		const vertices = Array.from(s.selectAll('.vertex'));
+// 		activeCrease.attr({
+// 			'x2': vertices[index].getBBox().cx,
+// 			'y2': vertices[index].getBBox().cy
+// 		});
+
+// 		// Add this edge to the planar graph
+// 		const a = this.data('index');
+// 		const b = index;
+// 		g.addEdge(a, b);
+// 		console.log(g.edges);
+
+// 	} else {
+// 		console.log('Failed to connect line to vertex...deleting');
+// 		let activeCrease = creases.pop();
+// 		activeCrease.remove();
+// 	}
+// }
+
+
+
 
 function constructGrid() {
 
 	let svgVertices = Array.from(s.selectAll('.vertex'));
 
 	// // Remove all "grid" vertices, keeping any user-generated, "active" vertices in tact
+	// TODO
 	// var removeIndices = [];
 	// for (var index = 0; index < vertices.length; index++) {
 	// 	if (vertices[index].data('type') == vertexType.GRID) {
@@ -254,6 +326,9 @@ for (var index = 0; index < editModeButtons.length; index++) {
 	editModeButtons[index].onclick = function() {
 		deselectAll();
 		mode = this.value;
+		console.log(`Switched to mode: ${mode}`)
+
+		select = selectionGroups[mode].verticesFirst ? selectionModes.VERTEX : selectionModes.CREASE;
 	};
 }
 

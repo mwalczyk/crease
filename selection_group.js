@@ -1,10 +1,12 @@
 export class SelectionGroup {
 	
-	constructor(expectedVertices, expectedCreases) {
+	constructor(expectedVertices, expectedCreases, verticesFirst=true, help='Message') {
 		this.vertices = [];
 		this.creases = [];
 		this.expectedVertices = expectedVertices;
 		this.expectedCreases = expectedCreases;
+		this.verticesFirst = verticesFirst;
+		this.help = help;
 	}
 
 	maybeAddVertex(v) {
@@ -39,10 +41,18 @@ export class SelectionGroup {
 		return this.creases.length;
 	}
 
-	get isComplete() {
-		return this.vertexCount === this.expectedVertices && this.creaseCount == this.expectedCreases;
+	get hasRequiredVertices() {
+		return this.vertexCount === this.expectedVertices;
 	}
-	
+
+	get hasRequiredCreases() {
+		return this.creaseCount == this.expectedCreases;
+	}
+
+	get isComplete() {
+		return this.hasRequiredVertices && this.hasRequiredCreases;
+	}
+
 	clear() {
 		this.vertices = [];
 		this.creases = [];

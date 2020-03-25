@@ -1,5 +1,5 @@
 svg {
-	border: 1px solid black;
+
 }
 	
 html, body { 
@@ -11,11 +11,26 @@ html, body {
 }
 
 .item {
-	
+	border: 1em hsl(120, 1%, 15%) solid;
+}
+
+.container p {
+	font-weight: bold;
+	font-family: Arial;
+	color: hsl(120, 1%, 65%);
+}
+
+.container label {
+	font-family: Arial;
+	color: hsl(120, 0%, 54%);
+}
+
+.container input[type="radio"]:checked+label {
+	color: hsl(211, 85%, 80%);
 }
 
 #controls {
-	background-color: hsl(40, 32%, 91%);
+	background-color: hsl(120, 1%, 23%);
 }
 
 svg .vertex {

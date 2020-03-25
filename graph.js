@@ -1,4 +1,5 @@
 import { Vec2 } from './math.js'
+import { calculateLineSegmentIntersection } from './geometry.js';
 
 export class PlanarGraph {
 	// An embedding of a planar graph
@@ -15,27 +16,27 @@ export class PlanarGraph {
 
 	// Adds an edge between the vertices at index `a` and `b`
 	addEdge(a, b) {
-		this.edges.push([a, b])
-	}
 
-	deleteVertices(indices) {
+		this.edges.forEach((edge, index) => {
+			const intersection = calculateLineSegmentIntersection(
+				this.vertices[edge[0]],
+				this.vertices[edge[1]],
+				this.vertices[a],
+				this.vertices[b]
+			);
 
-		this.vertices = this.vertices.filter((v, i) => !indices.includes(i));
+			if (intersection) {
 
-		// Delete vertex "4":
+				// Is the intersection point an endpoint? If so, we should ignore the next steps
+				// ...
 
-		// Vertices:
-		// 0 1 2 3 4 5 ...
+				// Split edge
 
-		// Edges:
-		// [0, 4]
-		// [4, 9]
-		// ...
-		indices.forEach(i => {
-			this.vertices.splice(i, 1);
-
-
+				console.log(`Found intersection between new edge and edge ${index}`);
+			}
 		})
+
+		this.edges.push([a, b]);
 	}
 
 	deleteVertex(index) {
@@ -45,15 +46,15 @@ export class PlanarGraph {
 		// Then, delete any edges that contain the removed vertex 
 		this.deleteEdgesWithVertex(index);
 
-		// Finally, rebuild existing edges
-		// this.edges.forEach((e, i) => {
-		// 	if this.edges[i][0] > index {
-		// 		this.edges[i][0]--;
-		// 	}
-		// 	if this.edges[i][1] > index {
-		// 		this.edges[i][1]--;
-		// 	}
-		// });
+		Finally, rebuild existing edges
+		this.edges.forEach((e, i) => {
+			if this.edges[i][0] > index {
+				this.edges[i][0]--;
+			}
+			if this.edges[i][1] > index {
+				this.edges[i][1]--;
+			}
+		});
 	}
 
 	deleteEdgesWithVertex(index) {
