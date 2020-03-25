@@ -1,6 +1,98 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 "use strict";
 
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.PlanarGraph = void 0;
+
+var _math = require("./math.js");
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+var PlanarGraph = /*#__PURE__*/function () {
+  // An embedding of a planar graph
+  function PlanarGraph() {
+    _classCallCheck(this, PlanarGraph);
+
+    this.vertices = [];
+    this.edges = [];
+  } // Adds a vertex (represented as a 2-element vector) with coordinates (x, y)
+
+
+  _createClass(PlanarGraph, [{
+    key: "addVertex",
+    value: function addVertex(vertex) {
+      this.vertices.push(vertex);
+    } // Adds an edge between the vertices at index `a` and `b`
+
+  }, {
+    key: "addEdge",
+    value: function addEdge(a, b) {
+      this.edges.push([a, b]);
+    }
+  }, {
+    key: "deleteVertices",
+    value: function deleteVertices(indices) {
+      var _this = this;
+
+      this.vertices = this.vertices.filter(function (v, i) {
+        return !indices.includes(i);
+      }); // Delete vertex "4":
+      // Vertices:
+      // 0 1 2 3 4 5 ...
+      // Edges:
+      // [0, 4]
+      // [4, 9]
+      // ...
+
+      indices.forEach(function (i) {
+        _this.vertices.splice(i, 1);
+      });
+    }
+  }, {
+    key: "deleteVertex",
+    value: function deleteVertex(index) {
+      // First, remove the vertex at the specified index
+      this.vertices.splice(index, 1); // Then, delete any edges that contain the removed vertex 
+
+      this.deleteEdgesWithVertex(index); // Finally, rebuild existing edges
+      // this.edges.forEach((e, i) => {
+      // 	if this.edges[i][0] > index {
+      // 		this.edges[i][0]--;
+      // 	}
+      // 	if this.edges[i][1] > index {
+      // 		this.edges[i][1]--;
+      // 	}
+      // });
+    }
+  }, {
+    key: "deleteEdgesWithVertex",
+    value: function deleteEdgesWithVertex(index) {
+      this.edges = this.edges.filter(function (e) {
+        return !e.includes(index);
+      });
+    }
+  }]);
+
+  return PlanarGraph;
+}();
+
+exports.PlanarGraph = PlanarGraph;
+
+},{"./math.js":3}],2:[function(require,module,exports){
+"use strict";
+
+var _graph = require("./graph.js");
+
+var _math = require("./math.js");
+
+var _selection_group = require("./selection_group.js");
+
 function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest(); }
 
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -41,8 +133,10 @@ var snapsvg = require('snapsvg'); // To install:
 //
 // 		watchify index.js -o bundle.js
 //
-// Create the `Element` object that will house all of the other SVGs
+// An embedding of a planar graph, representing the crease pattern
 
+
+var g = new _graph.PlanarGraph(); // Create the `Element` object that will house all of the other SVGs
 
 console.log('Starting application...');
 var s = Snap('#svg');
@@ -50,12 +144,16 @@ var w = s.attr().width;
 var h = s.attr().height;
 console.log("SVG size: ".concat(w, " x ").concat(h));
 var creaseAssignment = {
-  MOUNTAIN: 'M',
-  VALLEY: 'V',
-  BORDER: 'B',
-  UNKNOWN: 'U'
+  MOUNTAIN: 'm',
+  VALLEY: 'v',
+  BORDER: 'b',
+  UNKNOWN: 'u'
 };
 var vertexType = {
+  GRID: 'grid',
+  ACTIVE: 'active'
+};
+var creaseType = {
   GRID: 'grid',
   ACTIVE: 'active'
 };
@@ -64,18 +162,22 @@ var selectionModes = {
   CREASE: 'crease'
 };
 var editModes = {
-  LINE_SEGMENT: 'lineSegment',
-  INFINITE_LINE: 'infiniteLine',
-  BISECTOR: 'bisector'
+  LINE_SEGMENT: 'line-segment',
+  LINE: 'line',
+  INCENTER: 'incenter'
 };
+var selectionGroups = {
+  'line-segment': new _selection_group.SelectionGroup(2, 0),
+  'line': new _selection_group.SelectionGroup(2, 0),
+  'incenter': new _selection_group.SelectionGroup(3, 0)
+}; // Configuration for application start
+
 var select = selectionModes.VERTEX;
 var mode = editModes.LINE_SEGMENT;
-var vertices = [];
-var creases = []; // Create the grid
-
 var gridDivsX = 5;
 var gridDivsY = 5;
 var vertexDrawRadius = 6;
+var activeCrease = null;
 
 function deselectAllVertices() {
   s.selectAll('.vertex').forEach(function (el) {
@@ -99,8 +201,7 @@ function deselectAll() {
 
 
 function findClosestVertexTo(x, y) {
-  // We do this because `selectAll()` actually returns an `HTMLCollection` 
-  // object, not an array
+  // Convert the HTMLCollection into a Javascript array
   var vertices = Array.from(s.selectAll('.vertex'));
   var distances = vertices.map(function (el) {
     return Math.hypot(el.getBBox().cx - x, el.getBBox().cy - y);
@@ -128,7 +229,7 @@ var callbackVertexClicked = function callbackVertexClicked() {
 
 var callbackVertexHoverEnter = function callbackVertexHoverEnter() {
   this.attr({
-    'r': vertexDrawRadius * 1.5
+    'r': vertexDrawRadius * 1.25
   });
 };
 
@@ -139,7 +240,7 @@ var callbackVertexHoverExit = function callbackVertexHoverExit() {
 };
 
 var callbackVertexDragMove = function callbackVertexDragMove(dx, dy, x, y) {
-  creases[creases.length - 1].attr({
+  activeCrease.attr({
     'x2': this.getBBox().cx + dx,
     'y2': this.getBBox().cy + dy
   });
@@ -147,64 +248,75 @@ var callbackVertexDragMove = function callbackVertexDragMove(dx, dy, x, y) {
 
 var callbackVertexDragStart = function callbackVertexDragStart() {
   console.log('Starting drag...');
-  var crease = s.line(this.getBBox().cx, this.getBBox().cy, this.getBBox().cx, this.getBBox().cy);
-  crease.click(callbackCreaseClicked);
-  crease.addClass('crease');
-  creases.push(crease);
+  var label = Snap.parse("<title>Edge: ".concat(g.edges.length, "</title>"));
+  activeCrease = s.line(this.getBBox().cx, this.getBBox().cy, this.getBBox().cx, this.getBBox().cy);
+  activeCrease.data('index', g.edges.length);
+  activeCrease.click(callbackCreaseClicked);
+  activeCrease.addClass('crease');
+  activeCrease.append(label);
 };
 
 var callbackVertexDragStop = function callbackVertexDragStop() {
   console.log('Ending drag...');
   var threshold = 20;
 
-  var _findClosestVertexTo = findClosestVertexTo(creases[creases.length - 1].attr().x2, creases[creases.length - 1].attr().y2),
+  var _findClosestVertexTo = findClosestVertexTo(activeCrease.attr().x2, activeCrease.attr().y2),
       _findClosestVertexTo2 = _slicedToArray(_findClosestVertexTo, 2),
       index = _findClosestVertexTo2[0],
       distance = _findClosestVertexTo2[1];
 
   if (distance < threshold && index != this.data('index')) {
     console.log("Connecting to vertex: ".concat(index));
+    var vertices = Array.from(s.selectAll('.vertex'));
+    activeCrease.attr({
+      'x2': vertices[index].getBBox().cx,
+      'y2': vertices[index].getBBox().cy
+    }); // Add this edge to the planar graph
 
-    var _vertices = Array.from(s.selectAll('.vertex'));
-
-    creases[creases.length - 1].attr({
-      'x2': _vertices[index].getBBox().cx,
-      'y2': _vertices[index].getBBox().cy
-    });
+    var a = this.data('index');
+    var b = index;
+    g.addEdge(a, b);
+    console.log(g.edges);
   } else {
     console.log('Failed to connect line to vertex...deleting');
-    var activeCrease = creases.pop();
-    activeCrease.remove();
+
+    var _activeCrease = creases.pop();
+
+    _activeCrease.remove();
   }
 };
 
 function addVertex(x, y, type) {
-  var label = Snap.parse("<title>ID: ".concat(vertices.length, "</title>"));
+  var label = Snap.parse("<title>Vertex: ".concat(g.vertices.length, "</title>"));
   var vertex = s.circle(x, y, vertexDrawRadius);
   vertex.data('type', type);
-  vertex.data('index', vertices.length);
+  vertex.data('index', g.vertices.length);
   vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
   vertex.click(callbackVertexClicked);
   vertex.drag(callbackVertexDragMove, callbackVertexDragStart, callbackVertexDragStop);
   vertex.addClass('vertex');
   vertex.append(label);
-  vertices.push(vertex);
+  g.addVertex(new _math.Vec2(x, y));
 }
 
-function constructGrid() {
-  // Remove all "grid" vertices, keeping any user-generated, "active" vertices in tact
-  vertices = vertices.filter(function (v) {
-    // Remove the SVG element
-    if (v.data('type') == vertexType.GRID) {
-      v.remove();
-      return false;
-    }
+function addCrease(x0, y0, x1, y1) {}
 
-    return true;
-  });
-  vertices.forEach(function (v, i) {
-    v.data('index', i);
-    console.log(v.data('index'));
+function constructGrid() {
+  var svgVertices = Array.from(s.selectAll('.vertex')); // // Remove all "grid" vertices, keeping any user-generated, "active" vertices in tact
+  // var removeIndices = [];
+  // for (var index = 0; index < vertices.length; index++) {
+  // 	if (vertices[index].data('type') == vertexType.GRID) {
+  // 		// Record the index of this vertex so that it can be properly removed from the planar graph
+  // 		removeIndices.push(vertices[index].data('index'));
+  //
+  // 		// Remove the SVG element from the DOM
+  // 		vertices[index].remove();
+  // 	}
+  // }
+  // Make sure each of the SVG elements contains the right index
+
+  svgVertices.forEach(function (v, i) {
+    return v.data('index', i);
   });
   var gridSizeX = w / 2;
   var gridSizeY = h / 2;
@@ -217,12 +329,11 @@ function constructGrid() {
       var percentY = y / (gridDivsY - 1);
       var posX = percentX * gridSizeX + paperCenterX / 2;
       var posY = percentY * gridSizeY + paperCenterY / 2;
-
-      var _index = y * gridDivsX + x;
-
       addVertex(posX, posY, vertexType.GRID);
     }
   }
+
+  console.log(g.vertices);
 }
 
 var slider = document.getElementById('divisions');
@@ -254,7 +365,121 @@ for (var index = 0; index < selectionModeButtons.length; index++) {
 
 constructGrid();
 
-},{"snapsvg":3}],2:[function(require,module,exports){
+},{"./graph.js":1,"./math.js":3,"./selection_group.js":6,"snapsvg":5}],3:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Vec2 = void 0;
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+// References: 
+// https://github.com/hiddentao/linear-algebra
+// https://github.com/uber-web/math.gl
+// https://github.com/reinvanoyen/tnt-vec2/blob/master/src/index.js
+var Vec2 = /*#__PURE__*/function () {
+  function Vec2(x, y) {
+    _classCallCheck(this, Vec2);
+
+    this.x = x;
+    this.y = y;
+  }
+
+  _createClass(Vec2, [{
+    key: "length",
+    value: function length() {
+      return Math.sqrt(this.x * this.y + this.y * this.y);
+    }
+  }, {
+    key: "normalize",
+    value: function normalize() {
+      return this.mul(1.0 / this.length());
+    }
+  }, {
+    key: "dot",
+    value: function dot(other) {
+      return this.mul(other).sum();
+    }
+  }, {
+    key: "distance",
+    value: function distance(other) {
+      return this.sub(other).length();
+    }
+  }, {
+    key: "add",
+    value: function add(other) {
+      // Scalar addition
+      if (typeof other === 'number') {
+        return new Vec2(this.x + other, this.y + other);
+      } // Vector (element-wise) addition
+
+
+      return new Vec2(this.x + other.x, this.y + other.y);
+    }
+  }, {
+    key: "sub",
+    value: function sub(other) {
+      // Scalar subtraction
+      if (typeof other === 'number') {
+        return new Vec2(this.x - other, this.y - other);
+      } // Vector (element-wise) subtraction
+
+
+      return new Vec2(this.x - other.x, this.y - other.y);
+    }
+  }, {
+    key: "mul",
+    value: function mul(other) {
+      // Scalar multiplication
+      if (typeof other === 'number') {
+        return new Vec2(this.x * other, this.y * other);
+      } // Vector (element-wise) multiplication
+
+
+      return new Vec2(this.x * other.x, this.y * other.y);
+    }
+  }, {
+    key: "div",
+    value: function div(other) {
+      // Scalar division
+      if (typeof other === 'number') {
+        return new Vec2(this.x / other, this.y / other);
+      } // Vector (element-wise) division
+
+
+      return new Vec2(this.x / other.x, this.y / other.y);
+    }
+  }, {
+    key: "sum",
+    value: function sum() {
+      return this.x + this.y;
+    }
+  }]);
+
+  return Vec2;
+}();
+
+exports.Vec2 = Vec2;
+
+var Vec3 = function Vec3() {
+  _classCallCheck(this, Vec3);
+};
+
+var Mat3 = function Mat3() {
+  _classCallCheck(this, Mat3);
+};
+
+var Mat4 = function Mat4() {
+  _classCallCheck(this, Mat4);
+};
+
+},{}],4:[function(require,module,exports){
 // Copyright (c) 2017 Adobe Systems Incorporated. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -691,7 +916,7 @@ constructGrid();
     typeof module != "undefined" && module.exports ? module.exports = eve : typeof define === "function" && define.amd ? define("eve", [], function () { return eve; }) : glob.eve = eve;
 })(typeof window != "undefined" ? window : this);
 
-},{}],3:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 // Snap.svg 0.5.0
 //
 // Copyright (c) 2013 – 2017 Adobe Systems Incorporated. All rights reserved.
@@ -9322,4 +9547,86 @@ Snap.plugin(function (Snap, Element, Paper, glob) {
 
 return Snap;
 }));
-},{"eve":2}]},{},[1]);
+},{"eve":4}],6:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.SelectionGroup = void 0;
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+var SelectionGroup = /*#__PURE__*/function () {
+  function SelectionGroup(expectedVertices, expectedCreases) {
+    _classCallCheck(this, SelectionGroup);
+
+    this.vertices = [];
+    this.creases = [];
+    this.expectedVertices = expectedVertices;
+    this.expectedCreases = expectedCreases;
+  }
+
+  _createClass(SelectionGroup, [{
+    key: "maybeAddVertex",
+    value: function maybeAddVertex(v) {
+      if (this.vertices.length < this.expectedVertices) {
+        this.vertices.push(v);
+        return true;
+      }
+
+      return false;
+    }
+  }, {
+    key: "maybeAddCrease",
+    value: function maybeAddCrease(c) {
+      if (this.creases.length < this.expectedCreases) {
+        this.creases.push(c);
+        return true;
+      }
+
+      return false;
+    }
+  }, {
+    key: "clear",
+    value: function clear() {
+      this.vertices = [];
+      this.creases = [];
+    }
+  }, {
+    key: "mostRecentVertex",
+    get: function get() {
+      return this.vertices[this.vertices.length - 1];
+    }
+  }, {
+    key: "mostRecentCrease",
+    get: function get() {
+      return this.creases[this.creases.length - 1];
+    }
+  }, {
+    key: "vertexCount",
+    get: function get() {
+      return this.vertices.length;
+    }
+  }, {
+    key: "creaseCount",
+    get: function get() {
+      return this.creases.length;
+    }
+  }, {
+    key: "isComplete",
+    get: function get() {
+      return this.vertexCount === this.expectedVertices && this.creaseCount == this.expectedCreases;
+    }
+  }]);
+
+  return SelectionGroup;
+}();
+
+exports.SelectionGroup = SelectionGroup;
+
+},{}]},{},[2]);

@@ -1,4 +1,8 @@
-const snapsvg = require('snapsvg')
+import { PlanarGraph } from './graph.js';
+import { Vec2 } from './math.js';
+import { SelectionGroup } from './selection_group.js';
+
+const snapsvg = require('snapsvg');
 
 // To install:
 // 
@@ -29,6 +33,9 @@ const snapsvg = require('snapsvg')
 // 		watchify index.js -o bundle.js
 //
 
+// An embedding of a planar graph, representing the crease pattern
+let g = new PlanarGraph();
+
 // Create the `Element` object that will house all of the other SVGs
 console.log('Starting application...');
 const s = Snap('#svg');
@@ -37,13 +44,18 @@ const h = s.attr().height;
 console.log(`SVG size: ${w} x ${h}`);
 
 const creaseAssignment = {
-	MOUNTAIN: 'M',
-	VALLEY: 'V',
-	BORDER: 'B',
-	UNKNOWN: 'U'
+	MOUNTAIN: 'm',
+	VALLEY: 'v',
+	BORDER: 'b',
+	UNKNOWN: 'u'
 };
 
 const vertexType = {
+	GRID: 'grid',
+	ACTIVE: 'active'
+};
+
+const creaseType = {
 	GRID: 'grid',
 	ACTIVE: 'active'
 };
@@ -54,20 +66,26 @@ const selectionModes = {
 };
 
 const editModes = {
-	LINE_SEGMENT: 'lineSegment',
-	INFINITE_LINE: 'infiniteLine',
-	BISECTOR: 'bisector'
+	LINE_SEGMENT: 'line-segment',
+	LINE: 'line',
+	INCENTER: 'incenter'
 };
 
+let selectionGroups = {
+	'line-segment': new SelectionGroup(2, 0),
+	'line': new SelectionGroup(2, 0),
+	'incenter': new SelectionGroup(3, 0)
+};
+
+// Configuration for application start
 let select = selectionModes.VERTEX;
 let mode = editModes.LINE_SEGMENT;
-let vertices = [];
-let creases = [];
-
-// Create the grid
 let gridDivsX = 5;
 let gridDivsY = 5;
 const vertexDrawRadius = 6;
+let activeCrease = null;
+
+
 
 function deselectAllVertices() {
 	s.selectAll('.vertex').forEach(el => el.removeClass('vertex-selected'));
@@ -87,12 +105,9 @@ function deselectAll() {
 //
 // TODO: use `Snap.path.isPointInsideBBox(bbox, x, y)` instead?
 function findClosestVertexTo(x, y) {
-	// We do this because `selectAll()` actually returns an `HTMLCollection` 
-	// object, not an array
+	// Convert the HTMLCollection into a Javascript array
 	const vertices = Array.from(s.selectAll('.vertex'));
-	const distances = vertices.map(el => {
-    	return Math.hypot(el.getBBox().cx - x, el.getBBox().cy - y)
-	});
+	const distances = vertices.map(el => Math.hypot(el.getBBox().cx - x, el.getBBox().cy - y));
 	const index = distances.indexOf(Math.min.apply(Math, distances));
 	const distance = distances[index];
 
@@ -115,13 +130,13 @@ let callbackVertexClicked = function() {
 	}
 }
 let callbackVertexHoverEnter = function() {
-	this.attr({'r': vertexDrawRadius * 1.5});
+	this.attr({'r': vertexDrawRadius * 1.25});
 }
 let callbackVertexHoverExit = function() {
 	this.attr({'r': vertexDrawRadius});
 }
 let callbackVertexDragMove = function(dx, dy, x, y) {
-	creases[creases.length - 1].attr({
+	activeCrease.attr({
 		'x2': this.getBBox().cx + dx, 
 		'y2': this.getBBox().cy + dy
 	});
@@ -129,30 +144,40 @@ let callbackVertexDragMove = function(dx, dy, x, y) {
 let callbackVertexDragStart = function() {
 	console.log('Starting drag...')
 
-	let crease = s.line(this.getBBox().cx, 
-						this.getBBox().cy, 
-						this.getBBox().cx, 
-						this.getBBox().cy);
-	crease.click(callbackCreaseClicked);
-	crease.addClass('crease');
-	creases.push(crease);
+	const label = Snap.parse(`<title>Edge: ${g.edges.length}</title>`);
+
+	activeCrease = s.line(this.getBBox().cx, 
+						  this.getBBox().cy, 
+						  this.getBBox().cx, 
+						  this.getBBox().cy);
+	activeCrease.data('index', g.edges.length);
+	activeCrease.click(callbackCreaseClicked);
+	activeCrease.addClass('crease');
+	activeCrease.append(label);
 }
 let callbackVertexDragStop = function() {
 	console.log('Ending drag...')
 
 	const threshold = 20;
 	const [index, distance] = findClosestVertexTo(
-		creases[creases.length - 1].attr().x2,
-		creases[creases.length - 1].attr().y2
+		activeCrease.attr().x2,
+		activeCrease.attr().y2
 	);
 
 	if (distance < threshold && index != this.data('index')) {
 		console.log(`Connecting to vertex: ${index}`);
 		const vertices = Array.from(s.selectAll('.vertex'));
-		creases[creases.length - 1].attr({
+		activeCrease.attr({
 			'x2': vertices[index].getBBox().cx,
 			'y2': vertices[index].getBBox().cy
 		});
+
+		// Add this edge to the planar graph
+		const a = this.data('index');
+		const b = index;
+		g.addEdge(a, b);
+		console.log(g.edges);
+
 	} else {
 		console.log('Failed to connect line to vertex...deleting');
 		let activeCrease = creases.pop();
@@ -161,34 +186,43 @@ let callbackVertexDragStop = function() {
 }
 
 function addVertex(x, y, type) {
-	const label = Snap.parse(`<title>ID: ${vertices.length}</title>`);
+
+	const label = Snap.parse(`<title>Vertex: ${g.vertices.length}</title>`);
 
 	let vertex = s.circle(x, y, vertexDrawRadius);
 	vertex.data('type', type);
-	vertex.data('index', vertices.length);
+	vertex.data('index', g.vertices.length);
 	vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
 	vertex.click(callbackVertexClicked);
 	vertex.drag(callbackVertexDragMove, callbackVertexDragStart, callbackVertexDragStop);
 	vertex.addClass('vertex');
 	vertex.append(label);
 
-	vertices.push(vertex)
+	g.addVertex(new Vec2(x, y));
+}
+
+function addCrease(x0, y0, x1, y1) {
+
 }
 
 function constructGrid() {
-	// Remove all "grid" vertices, keeping any user-generated, "active" vertices in tact
-	vertices = vertices.filter(v => {
-		// Remove the SVG element
-		if (v.data('type') == vertexType.GRID) {
-			v.remove();
-			return false;
-		} 
-		return true;
-	});
-	vertices.forEach((v, i) => {
-		v.data('index', i);
-		console.log(v.data('index'));
-	});
+
+	let svgVertices = Array.from(s.selectAll('.vertex'));
+
+	// // Remove all "grid" vertices, keeping any user-generated, "active" vertices in tact
+	// var removeIndices = [];
+	// for (var index = 0; index < vertices.length; index++) {
+	// 	if (vertices[index].data('type') == vertexType.GRID) {
+	// 		// Record the index of this vertex so that it can be properly removed from the planar graph
+	// 		removeIndices.push(vertices[index].data('index'));
+	//
+	// 		// Remove the SVG element from the DOM
+	// 		vertices[index].remove();
+	// 	}
+	// }
+
+	// Make sure each of the SVG elements contains the right index
+	svgVertices.forEach((v, i) => v.data('index', i));	
 
 	const gridSizeX = w / 2;
 	const gridSizeY = h / 2;
@@ -201,12 +235,11 @@ function constructGrid() {
 			let percentY = y / (gridDivsY - 1);
 			let posX = percentX * gridSizeX + paperCenterX / 2;
 			let posY = percentY * gridSizeY + paperCenterY / 2;
-
-			let index = y * gridDivsX + x;
-
 			addVertex(posX, posY, vertexType.GRID);
 		}
 	}
+
+	console.log(g.vertices)
 }
 
 const slider = document.getElementById('divisions');
