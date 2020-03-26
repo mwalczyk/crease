@@ -42,6 +42,19 @@ export function calculatePerpendicular(lineA, lineB, point) {
 	return new Vec2(point.x - k * (lineB.y - lineA.y), point.y + k * (lineB.x - lineA.x));
 }
 
+// Check if the specified point lies along the specified line segment
+export function isOnLineSegment(lineA, lineB, point, eps=0.001) {
+	// The length of the specified line segment
+	const ab = lineA.distance(lineB);
+
+	// The lengths of the two sub-segments joining each endpoint to the specified point
+	const ac = lineA.distance(point);
+	const cb = point.distance(lineB);
+
+	// Return `false` if the specified point is one of the endpoints of the line segment
+	return Math.abs((ac + cb) - ab) < eps && Math.abs(ac) > eps && Math.abs(cb) > eps;
+}
+
 // Finds the index of the vertex that is closest to the specified target vertex 
 export function findClosestTo(target, vertices) {
 	const distances = vertices.map(v => Math.hypot(v.x - target.x, v.y - target.y));

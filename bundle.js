@@ -7,6 +7,7 @@ Object.defineProperty(exports, "__esModule", {
 exports.calculateTriangleIncenter = calculateTriangleIncenter;
 exports.calculateLineSegmentIntersection = calculateLineSegmentIntersection;
 exports.calculatePerpendicular = calculatePerpendicular;
+exports.isOnLineSegment = isOnLineSegment;
 exports.findClosestTo = findClosestTo;
 
 var _math = require("./math.js");
@@ -44,6 +45,18 @@ function calculatePerpendicular(lineA, lineB, point) {
   var den = Math.pow(lineB.y - lineA.y, 2) + Math.pow(lineB.x - lineA.x, 2);
   var k = num / den;
   return new _math.Vec2(point.x - k * (lineB.y - lineA.y), point.y + k * (lineB.x - lineA.x));
+} // Check if the specified point lies along the specified line segment
+
+
+function isOnLineSegment(lineA, lineB, point) {
+  var eps = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 0.001;
+  // The length of the specified line segment
+  var ab = lineA.distance(lineB); // The lengths of the two sub-segments joining each endpoint to the specified point
+
+  var ac = lineA.distance(point);
+  var cb = point.distance(lineB); // Return `false` if the specified point is one of the endpoints of the line segment
+
+  return Math.abs(ac + cb - ab) < eps && Math.abs(ac) > eps && Math.abs(cb) > eps;
 } // Finds the index of the vertex that is closest to the specified target vertex 
 
 
@@ -68,44 +81,108 @@ var _math = require("./math.js");
 
 var _geometry = require("./geometry.js");
 
+function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest(); }
+
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+
+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(n); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+
+function _iterableToArrayLimit(arr, i) { if (typeof Symbol === "undefined" || !(Symbol.iterator in Object(arr))) return; var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"] != null) _i["return"](); } finally { if (_d) throw _e; } } return _arr; }
+
+function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
 
 function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
 
+// A class that represents an embedding of a planar graph
 var PlanarGraph = /*#__PURE__*/function () {
-  // An embedding of a planar graph
   function PlanarGraph() {
     _classCallCheck(this, PlanarGraph);
 
     this.vertices = [];
     this.edges = [];
-  } // Adds a vertex (represented as a 2-element vector) with coordinates (x, y)
-
+  }
 
   _createClass(PlanarGraph, [{
-    key: "addVertex",
-    value: function addVertex(vertex) {
-      this.vertices.push(vertex);
-    } // Adds an edge between the vertices at index `a` and `b`
+    key: "addNode",
+    // Potentially adds a new node to the graph, where the node is represented by a 2-element
+    // vector (with xy-coordinates)
+    //
+    // Returns a list with two entries:
+    // 1) The index of the newly added node or the index of an existing node if the specified
+    //    node was the same (or very close to) an existing node
+    // 2) A list containing the indices of all of the edges that changed as a result of adding
+    //    the new node
+    value: function addNode(node) {
+      var epsilon = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0.001;
+
+      // Check if the vertex is the same as an existing vertex (within epsilon)
+      var _findClosestTo = (0, _geometry.findClosestTo)(node, this.vertices),
+          _findClosestTo2 = _slicedToArray(_findClosestTo, 2),
+          indexOfClosest = _findClosestTo2[0],
+          distanceToClosest = _findClosestTo2[1]; // If the found distance is less than the specified threshold, the specified
+      // node is considered a "duplicate," so we return the index of the existing
+      // node
+      //
+      // Otherwise, this is truly a new node, so we add it to the list of nodes
+      // and return its index
+
+
+      if (distanceToClosest < epsilon) {
+        console.log("Added node is very close to neighbor ".concat(indexOfClosest, " - returning existing index"));
+        return [indexOfClosest, []];
+      } else {
+        this.vertices.push(node); // Adding a new node to the graph may require splitting one or more edges
+        // in order to maintain planarity
+
+        this.splitEdgesAlong(node);
+        return [this.nodeCount, []];
+      }
+    } // Splits any edges that contain the specified node in their interiors - we do not need
+    // to split an edge when the specified node is one of its endpoints
+
+  }, {
+    key: "splitEdgesAlong",
+    value: function splitEdgesAlong(node) {
+      var _this = this;
+
+      var changedEdges = [];
+      this.edges.forEach(function (edge, index) {
+        var onEdge = (0, _geometry.isOnLineSegment)(_this.vertices[edge[0]], _this.vertices[edge[1]], node);
+
+        if (onEdge) {
+          console.log("The newly added node splits edge ".concat(index));
+          changedEdges.push(index);
+        }
+      });
+      return changedEdges;
+    } // Adds an edge between the nodes at indices `a` and `b` and splits any intersecting
+    // edges, adding new nodes and edges as necessary to maintain planarity
 
   }, {
     key: "addEdge",
     value: function addEdge(a, b) {
-      var _this = this;
+      var _this2 = this;
 
+      // First, push back the new edge
+      this.edges.push([a, b]);
+      var invalidEdges = [];
+      var updatedEdges = [];
       this.edges.forEach(function (edge, index) {
-        var intersection = (0, _geometry.calculateLineSegmentIntersection)(_this.vertices[edge[0]], _this.vertices[edge[1]], _this.vertices[a], _this.vertices[b]);
+        var intersection = (0, _geometry.calculateLineSegmentIntersection)(_this2.vertices[edge[0]], _this2.vertices[edge[1]], _this2.vertices[a], _this2.vertices[b]);
 
         if (intersection) {
-          // Is the intersection point an endpoint? If so, we should ignore the next steps
-          // ...
-          // Split edge
+          // If the new edge intersects (or touches) an existing edge, we need
+          // to split that edge, removing the original "unsplit" edge, and pushing
+          // back the two new subdivisions
           console.log("Found intersection between new edge and edge ".concat(index));
         }
       });
-      this.edges.push([a, b]);
     }
   }, {
     key: "deleteVertex",
@@ -130,6 +207,16 @@ var PlanarGraph = /*#__PURE__*/function () {
         return !e.includes(index);
       });
     }
+  }, {
+    key: "nodeCount",
+    get: function get() {
+      return this.vertices.length;
+    }
+  }, {
+    key: "edgeCount",
+    get: function get() {
+      return this.edges.length;
+    }
   }]);
 
   return PlanarGraph;
@@ -147,6 +234,18 @@ var _math = require("./math.js");
 var _selection_group = require("./selection_group.js");
 
 var _geometry = require("./geometry.js");
+
+function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest(); }
+
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+
+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(n); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+
+function _iterableToArrayLimit(arr, i) { if (typeof Symbol === "undefined" || !(Symbol.iterator in Object(arr))) return; var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"] != null) _i["return"](); } finally { if (_d) throw _e; } } return _arr; }
+
+function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 
 var snapsvg = require('snapsvg'); // To install:
 // 
@@ -312,8 +411,8 @@ var callbackCreaseClicked = function callbackCreaseClicked() {
 
           var perp = (0, _geometry.calculatePerpendicular)(lineA, lineB, point); // Add the new vertex
 
-          var perpVertex = addVertex(perp.x, perp.y, vertexType.ACTIVE);
-          addCrease(vertex, perpVertex);
+          var perpVertex = drawVertex(perp.x, perp.y, vertexType.ACTIVE);
+          drawCrease(vertex, perpVertex);
         } // Reset the selection mode
 
 
@@ -339,7 +438,7 @@ var callbackCreaseDoubleClicked = function callbackCreaseDoubleClicked() {
   } else {
     this.addClass('mountain');
   }
-}; // function addCrease(x0, y0, x1, y1) {
+}; // function drawCrease(x0, y0, x1, y1) {
 // 	const label = Snap.parse(`<title>Edge: ${g.edges.length}</title>`);
 // 	let crease = s.line(x0, y0, x1, y1);
 // 	crease.data('index', g.edges.length);
@@ -352,14 +451,17 @@ var callbackCreaseDoubleClicked = function callbackCreaseDoubleClicked() {
 // Adds a crease (an SVG line element) between the center points of the two specified SVG elements
 
 
-function addCrease(elA, elB) {
-  var label = Snap.parse("<title>Edge: ".concat(g.edges.length, "</title>"));
+function drawCrease(elA, elB) {
+  var label = Snap.parse("<title>Edge: ".concat(g.edges.length, ", Connects Vertices: ").concat(elA.data('index'), ", ").concat(elB.data('index'), "</title>"));
+  var vertices = s.selectAll('.vertex');
   var crease = s.line(elA.getBBox().cx, elA.getBBox().cy, elB.getBBox().cx, elB.getBBox().cy);
   crease.addClass('crease');
   crease.data('index', g.edges.length);
   crease.click(callbackCreaseClicked);
   crease.dblclick(callbackCreaseDoubleClicked);
-  crease.append(label);
+  crease.append(label); // Always draw creases "behind" the existing vertices
+
+  crease.insertBefore(vertices[0]);
   g.addEdge(elA.data('index'), elB.data('index'));
   return crease;
 } // Vertex callback functions
@@ -372,7 +474,7 @@ var callbackVertexClicked = function callbackVertexClicked() {
 
       if (selectionGroups[tool].isComplete) {
         // Add the new crease
-        addCrease(selectionGroups[tool].vertices[0], selectionGroups[tool].vertices[1]);
+        drawCrease(selectionGroups[tool].vertices[0], selectionGroups[tool].vertices[1]);
         selectionGroups[tool].clear();
         deselectAllVertices();
       }
@@ -389,10 +491,10 @@ var callbackVertexClicked = function callbackVertexClicked() {
 
         var incenter = (0, _geometry.calculateTriangleIncenter)(vertices[0], vertices[1], vertices[2]); // Add the new vertex
 
-        var elB = addVertex(incenter.x, incenter.y, vertexType.ACTIVE); // Create 3 new creases that join each of the 3 points to their incenter
+        var elB = drawVertex(incenter.x, incenter.y, vertexType.ACTIVE); // Create 3 new creases that join each of the 3 points to their incenter
 
         selectionGroups[tool].vertices.forEach(function (elA) {
-          return addCrease(elA, elB);
+          return drawCrease(elA, elB);
         });
         selectionGroups[tool].clear();
         deselectAllVertices();
@@ -421,52 +523,44 @@ var callbackVertexHoverExit = function callbackVertexHoverExit() {
   });
 };
 
-function addVertex(x, y, type) {
-  var label = Snap.parse("<title>Vertex: ".concat(g.vertices.length, "</title>"));
+function findElementWithIndex(selector, index) {
+  var elements = Array.from(s.selectAll(selector));
+  return elements.find(function (el) {
+    return el.data('index') === index;
+  });
+}
+
+function removeElementWithIndex(selector, index) {
+  var maybeElement = findElementWithIndex(selector, index);
+
+  if (maybeElement !== undefined) {
+    maybeElement.remove();
+    return true;
+  }
+
+  return false;
+}
+
+function drawVertex(x, y, type) {
+  // First, add a new node to the planar graph - this returns the index of either
+  // an existing node or a new node
+  var _g$addNode = g.addNode(new _math.Vec2(x, y)),
+      _g$addNode2 = _slicedToArray(_g$addNode, 2),
+      nodeIndex = _g$addNode2[0],
+      changedEdgeIndices = _g$addNode2[1];
+
+  removeElementWithIndex('.vertex', nodeIndex);
   var vertex = s.circle(x, y, vertexDrawRadius);
   vertex.data('type', type);
-  vertex.data('index', g.vertices.length);
+  vertex.data('index', nodeIndex);
   vertex.addClass('vertex');
   vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
   vertex.click(callbackVertexClicked);
-  vertex.append(label);
-  g.addVertex(new _math.Vec2(x, y));
+  vertex.append(Snap.parse("<title>Vertex: ".concat(nodeIndex, "</title>")));
+  changedEdgeIndices.forEach(function (edgeIndex) {// Remove and re-add them?
+  });
   return vertex;
-} // let callbackVertexDragMove = function(dx, dy, x, y) {
-// 	activeCrease.attr({
-// 		'x2': this.getBBox().cx + dx, 
-// 		'y2': this.getBBox().cy + dy
-// 	});
-// }
-// let callbackVertexDragStart = function() {
-// 	console.log('Starting drag...')
-// }
-// let callbackVertexDragStop = function() {
-// 	console.log('Ending drag...')
-// 	const threshold = 20;
-// 	const [index, distance] = findClosestVertexTo(
-// 		activeCrease.attr().x2,
-// 		activeCrease.attr().y2
-// 	);
-// 	if (distance < threshold && index != this.data('index')) {
-// 		console.log(`Connecting to vertex: ${index}`);
-// 		const vertices = Array.from(s.selectAll('.vertex'));
-// 		activeCrease.attr({
-// 			'x2': vertices[index].getBBox().cx,
-// 			'y2': vertices[index].getBBox().cy
-// 		});
-// 		// Add this edge to the planar graph
-// 		const a = this.data('index');
-// 		const b = index;
-// 		g.addEdge(a, b);
-// 		console.log(g.edges);
-// 	} else {
-// 		console.log('Failed to connect line to vertex...deleting');
-// 		let activeCrease = creases.pop();
-// 		activeCrease.remove();
-// 	}
-// }
-
+}
 
 function constructGrid() {
   var svgVertices = Array.from(s.selectAll('.vertex')); // // Remove all "grid" vertices, keeping any user-generated, "active" vertices in tact
@@ -497,7 +591,7 @@ function constructGrid() {
       var percentY = y / (gridDivsY - 1);
       var posX = percentX * gridSizeX + paperCenterX / 2;
       var posY = percentY * gridSizeY + paperCenterY / 2;
-      addVertex(posX, posY, vertexType.GRID);
+      drawVertex(posX, posY, vertexType.GRID);
     }
   }
 

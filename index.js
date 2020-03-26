@@ -168,11 +168,9 @@ let callbackCreaseClicked = function() {
 					let perp = calculatePerpendicular(lineA, lineB, point);
 
 					// Add the new vertex
-					let perpVertex = addVertex(perp.x, perp.y, vertexType.ACTIVE);
+					let perpVertex = drawVertex(perp.x, perp.y, vertexType.ACTIVE);
 
-					addCrease(
-						vertex, perpVertex
-					);
+					drawCrease(vertex, perpVertex);
 				}
 
 				// Reset the selection mode
@@ -202,7 +200,7 @@ let callbackCreaseDoubleClicked = function() {
 	}
 }
 
-// function addCrease(x0, y0, x1, y1) {
+// function drawCrease(x0, y0, x1, y1) {
 // 	const label = Snap.parse(`<title>Edge: ${g.edges.length}</title>`);
 
 // 	let crease = s.line(x0, y0, x1, y1);
@@ -216,8 +214,9 @@ let callbackCreaseDoubleClicked = function() {
 // }
 
 // Adds a crease (an SVG line element) between the center points of the two specified SVG elements
-function addCrease(elA, elB) {
-	const label = Snap.parse(`<title>Edge: ${g.edges.length}</title>`);
+function drawCrease(elA, elB) {
+	const label = Snap.parse(`<title>Edge: ${g.edges.length}, Connects Vertices: ${elA.data('index')}, ${elB.data('index')}</title>`);
+	const vertices = s.selectAll('.vertex');
 
 	let crease = s.line(
 		elA.getBBox().cx,
@@ -230,6 +229,9 @@ function addCrease(elA, elB) {
 	crease.click(callbackCreaseClicked);
 	crease.dblclick(callbackCreaseDoubleClicked);
 	crease.append(label);
+
+	// Always draw creases "behind" the existing vertices
+	crease.insertBefore(vertices[0]);
 
 	g.addEdge(elA.data('index'), elB.data('index'));
 
@@ -251,7 +253,7 @@ let callbackVertexClicked = function() {
 			this.addClass('vertex-selected');
 			if (selectionGroups[tool].isComplete) {
 				// Add the new crease
-				addCrease(selectionGroups[tool].vertices[0], selectionGroups[tool].vertices[1]);
+				drawCrease(selectionGroups[tool].vertices[0], selectionGroups[tool].vertices[1]);
 
 				selectionGroups[tool].clear();
 				deselectAllVertices();
@@ -259,6 +261,7 @@ let callbackVertexClicked = function() {
 		} 
 
 	} else if (tool === tools.LINE) {
+
 
 	} else if (tool === tools.INCENTER) {
 
@@ -272,10 +275,10 @@ let callbackVertexClicked = function() {
 				const incenter = calculateTriangleIncenter(vertices[0], vertices[1], vertices[2]);
 
 				// Add the new vertex
-				let elB = addVertex(incenter.x, incenter.y, vertexType.ACTIVE);
+				let elB = drawVertex(incenter.x, incenter.y, vertexType.ACTIVE);
 
 				// Create 3 new creases that join each of the 3 points to their incenter
-				selectionGroups[tool].vertices.forEach(elA => addCrease(elA, elB));
+				selectionGroups[tool].vertices.forEach(elA => drawCrease(elA, elB));
 
 				selectionGroups[tool].clear();
 				deselectAllVertices();
@@ -303,64 +306,42 @@ let callbackVertexHoverExit = function() {
 	this.attr({'r': vertexDrawRadius});
 }
 
-function addVertex(x, y, type) {
+function findElementWithIndex(selector, index) {
+	const elements = Array.from(s.selectAll(selector));
+	return elements.find(el => el.data('index') === index);
+}
 
-	const label = Snap.parse(`<title>Vertex: ${g.vertices.length}</title>`);
+function removeElementWithIndex(selector, index) {
+	const maybeElement = findElementWithIndex(selector, index);
+	if (maybeElement !== undefined) {
+		maybeElement.remove();
+		return true;
+	}
+	return false;
+}
+
+
+
+function drawVertex(x, y, type) {
+	// First, add a new node to the planar graph - this returns the index of either
+	// an existing node or a new node
+	const [nodeIndex, changedEdgeIndices] = g.addNode(new Vec2(x, y));
+	removeElementWithIndex('.vertex', nodeIndex);
 
 	let vertex = s.circle(x, y, vertexDrawRadius);
 	vertex.data('type', type);
-	vertex.data('index', g.vertices.length);
+	vertex.data('index', nodeIndex);
 	vertex.addClass('vertex');
 	vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
 	vertex.click(callbackVertexClicked);
-	vertex.append(label);
+	vertex.append(Snap.parse(`<title>Vertex: ${nodeIndex}</title>`));
 
-	g.addVertex(new Vec2(x, y));
+	changedEdgeIndices.forEach(edgeIndex => {
+		// Remove and re-add them?
+	});
 
 	return vertex;
 }
-
-// let callbackVertexDragMove = function(dx, dy, x, y) {
-// 	activeCrease.attr({
-// 		'x2': this.getBBox().cx + dx, 
-// 		'y2': this.getBBox().cy + dy
-// 	});
-// }
-// let callbackVertexDragStart = function() {
-// 	console.log('Starting drag...')
-
-	
-// }
-// let callbackVertexDragStop = function() {
-// 	console.log('Ending drag...')
-
-// 	const threshold = 20;
-// 	const [index, distance] = findClosestVertexTo(
-// 		activeCrease.attr().x2,
-// 		activeCrease.attr().y2
-// 	);
-
-// 	if (distance < threshold && index != this.data('index')) {
-// 		console.log(`Connecting to vertex: ${index}`);
-// 		const vertices = Array.from(s.selectAll('.vertex'));
-// 		activeCrease.attr({
-// 			'x2': vertices[index].getBBox().cx,
-// 			'y2': vertices[index].getBBox().cy
-// 		});
-
-// 		// Add this edge to the planar graph
-// 		const a = this.data('index');
-// 		const b = index;
-// 		g.addEdge(a, b);
-// 		console.log(g.edges);
-
-// 	} else {
-// 		console.log('Failed to connect line to vertex...deleting');
-// 		let activeCrease = creases.pop();
-// 		activeCrease.remove();
-// 	}
-// }
-
 
 
 
@@ -395,7 +376,7 @@ function constructGrid() {
 			let percentY = y / (gridDivsY - 1);
 			let posX = percentX * gridSizeX + paperCenterX / 2;
 			let posY = percentY * gridSizeY + paperCenterY / 2;
-			addVertex(posX, posY, vertexType.GRID);
+			drawVertex(posX, posY, vertexType.GRID);
 		}
 	}
 
