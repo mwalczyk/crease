@@ -42,11 +42,11 @@ svg .vertex:hover {
 }
 
 svg .vertex-selected {
-	fill: hsl(221, 12%, 40%);
+	fill: hsl(26, 100%, 70%);
 }
 
 svg .vertex-selected:hover {
-	fill: hsl(221, 12%, 30%);
+	fill: hsl(26, 100%, 60%);
 }
 
 svg .crease {
@@ -55,8 +55,26 @@ svg .crease {
 	stroke-linecap: round;
 }
 
-svg .crease:hover { 
-	stroke: hsl(240, 10%, 60%);
+svg .crease:hover {
+	stroke-width: 5;
+}
+
+svg .crease.valley {
+	stroke: hsl(225, 100%, 60%);
+	stroke-dasharray: 8;
+}
+
+svg .crease.valley:hover { 
+	stroke: hsl(225, 100%, 50%);
+}
+
+svg .crease.mountain {
+	stroke: hsl(3, 100%, 60%);
+	stroke-dasharray: 18, 10, 1, 8, 1, 10;
+}
+
+svg .crease.mountain:hover { 
+	stroke: hsl(3, 100%, 50%);
 }
 
 svg .crease-selected {
@@ -66,3 +84,4 @@ svg .crease-selected {
 svg .crease-selected:hover {
 	stroke: hsl(48, 100%, 40%);
 }
+

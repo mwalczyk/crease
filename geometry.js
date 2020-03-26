@@ -19,22 +19,34 @@ export function calculateTriangleIncenter(vertexA, vertexB, vertexC) {
 }
 
 export function calculateLineSegmentIntersection(a, b, c, d) {
-	let s1_x;
-	let s1_y;
-	let s2_x;
-	let s2_y;
-    s1_x = b.x - a.x;     
-    s1_y = b.y - a.y;
-    s2_x = d.x - c.x;     
-    s2_y = d.y - c.y;
+	let s1_x = b.x - a.x;  
+	let s1_y = b.y - a.y;
+	let s2_x = d.x - c.x;   
+	let s2_y = d.y - c.y;
 
     let s = (-s1_y * (a.x - c.x) + s1_x * (a.y - c.y)) / (-s2_x * s1_y + s1_x * s2_y);
     let t = ( s2_x * (a.y - c.y) - s2_y * (a.x - c.x)) / (-s2_x * s1_y + s1_x * s2_y);
 
-    if (s >= 0 && s <= 1 && t >= 0 && t <= 1)
-    {
+    if (s >= 0.0 && s <= 1.0 && t >= 0.0 && t <= 1.0) {
         return new Vec2(a.x + (t * s1_x), a.y + (t * s1_y));
     }
 
     return null; 
+}
+
+export function calculatePerpendicular(lineA, lineB, point) {
+	const num = (lineB.y - lineA.y) * (point.x - lineA.x) - (lineB.x - lineA.x) * (point.y - lineA.y);
+	const den = Math.pow(lineB.y - lineA.y, 2) + Math.pow(lineB.x - lineA.x, 2);
+	const k = num / den;
+
+	return new Vec2(point.x - k * (lineB.y - lineA.y), point.y + k * (lineB.x - lineA.x));
+}
+
+// Finds the index of the vertex that is closest to the specified target vertex 
+export function findClosestTo(target, vertices) {
+	const distances = vertices.map(v => Math.hypot(v.x - target.x, v.y - target.y));
+	const index = distances.indexOf(Math.min.apply(Math, distances));
+	const distance = distances[index];
+
+	return [index, distance];
 }

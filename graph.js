@@ -46,15 +46,15 @@ export class PlanarGraph {
 		// Then, delete any edges that contain the removed vertex 
 		this.deleteEdgesWithVertex(index);
 
-		Finally, rebuild existing edges
-		this.edges.forEach((e, i) => {
-			if this.edges[i][0] > index {
-				this.edges[i][0]--;
-			}
-			if this.edges[i][1] > index {
-				this.edges[i][1]--;
-			}
-		});
+		// Finally, rebuild existing edges
+		// this.edges.forEach((e, i) => {
+		// 	if this.edges[i][0] > index {
+		// 		this.edges[i][0]--;
+		// 	}
+		// 	if this.edges[i][1] > index {
+		// 		this.edges[i][1]--;
+		// 	}
+		// });
 	}
 
 	deleteEdgesWithVertex(index) {
