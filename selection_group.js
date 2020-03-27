@@ -9,7 +9,7 @@ export class SelectionGroup {
 		this.help = help;
 	}
 
-	maybeAddVertex(v) {
+	maybeRecordVertex(v) {
 		if (this.vertices.length < this.expectedVertices) {
 			this.vertices.push(v);
 			return true;
@@ -17,7 +17,7 @@ export class SelectionGroup {
 		return false;
 	}
 
-	maybeAddCrease(c) {
+	maybeRecordCrease(c) {
 		if (this.creases.length < this.expectedCreases) {
 			this.creases.push(c);
 			return true;

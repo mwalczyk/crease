@@ -17,6 +17,14 @@ export class PlanarGraph {
 		return this.edges.length;
 	}
 
+	nodeAt(index) {
+		return this.vertices[index];
+	}
+
+	edgeAt(index) {
+		return this.edges[index];
+	}
+
 	// Potentially adds a new node to the graph, where the node is represented by a 2-element
 	// vector (with xy-coordinates)
 	//
@@ -77,26 +85,26 @@ export class PlanarGraph {
 		// First, push back the new edge
 		this.edges.push([a, b]);
 
-		let invalidEdges = [];
-		let updatedEdges = [];
-		this.edges.forEach((edge, index) => {
-			const intersection = calculateLineSegmentIntersection(
-				this.vertices[edge[0]],
-				this.vertices[edge[1]],
-				this.vertices[a],
-				this.vertices[b]
-			);
+		// let invalidEdges = [];
+		// let updatedEdges = [];
+		// this.edges.forEach((edge, index) => {
+		// 	const intersection = calculateLineSegmentIntersection(
+		// 		this.vertices[edge[0]],
+		// 		this.vertices[edge[1]],
+		// 		this.vertices[a],
+		// 		this.vertices[b]
+		// 	);
 
-			if (intersection) {
+		// 	if (intersection) {
 
-				// If the new edge intersects (or touches) an existing edge, we need
-				// to split that edge, removing the original "unsplit" edge, and pushing
-				// back the two new subdivisions
+		// 		// If the new edge intersects (or touches) an existing edge, we need
+		// 		// to split that edge, removing the original "unsplit" edge, and pushing
+		// 		// back the two new subdivisions
 
 
-				console.log(`Found intersection between new edge and edge ${index}`);
-			}
-		})
+		// 		console.log(`Found intersection between new edge and edge ${index}`);
+		// 	}
+		// });
 
 		return this.edgeCount - 1;
 	}

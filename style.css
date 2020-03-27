@@ -38,7 +38,7 @@ svg .grid-point {
 }
 
 svg .grid-point:hover {
-	fill: hsl(5, 0%, 50%);
+	fill: hsl(5, 0%, 30%);
 }
 
 svg .vertex {

@@ -36,6 +36,10 @@ const snapsvg = require('snapsvg');
 //		[2](https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect)
 //		[3](https://www.mathopenref.com/coordincenter.html)
 //
+//	Docs:
+//
+//		[1](https://github.com/greggman/twgl.js/blob/master/src/textures.js)
+//
 // To run:
 //
 // 		watchify index.js -o bundle.js
@@ -60,9 +64,9 @@ document.addEventListener('keydown', function(event) {
 
 
 const creaseAssignment = {
-	MOUNTAIN: 'm',
-	VALLEY: 'v',
-	BORDER: 'b'
+	MOUNTAIN: 'mountain',
+	VALLEY: 'valley',
+	BORDER: 'border'
 };
 
 const vertexType = {
@@ -99,6 +103,7 @@ let select = selectionModes.VERTEX;
 let tool = tools.LINE_SEGMENT;
 let gridDivsX = 5;
 let gridDivsY = 5;
+const gridPointDrawRadius = 6;
 const vertexDrawRadius = 6;
 const creaseStrokeWidth = 4;
 
@@ -115,27 +120,51 @@ function deselectAll() {
 	deselectAllCreases()
 }
 
-// Applies a cyclic animation to a particular attribute of an SVG DOM element
-// 
-// For example, you could quickly increase (then decrease) the radius of a circle
-function animateCycle(el, name, to, from, timeTo=200, timeFrom=200) {
+
+// ADD EVENT LISTENERS TO MAIN SVG
+// RECORD MOUSE CLICK POSITIONS AND USE THE X,Y,X,Y VERSIONS OF THE FUNCTIONS
+// TO ADD CREASES AND VERTICES
+
+
+// OR MAYBE, CHANGE THE CALLBACKS BELOW SO THAT EACH TIME AN ELEMENT IS CLICKED,
+// IT SIMPLY ADDS ITS INTERNAL ID TO THE SELECTION GROUP, AND CALLS A "CHECK-SELECTION-STATUS"
+// FUNCTION THAT DOES ALL OF THE OPERATIONS/SWITCHING 
+
+
+
+
+/**
+ * Applies a cyclic animation to a particular attribute of an SVG DOM element
+ * @param {DOM element} element - the DOM SVG element to animate
+ * @param {string} name - the name of the attribute to animate	
+ * @param {number} to - the target value of the named attribute
+ * @param {number} from - the starting value of the named attribute
+ * @param {number} timeTo - the duration of the target animation 
+ * @param {number} timeFrom - the duration of the return animation
+ */
+function animateCycle(element, name, to, from, timeTo=200, timeFrom=50) {
 	let anims = [
 		function() {
-			Snap.animate(from, to, function(val) { el.attr(name, val);  }, 200, mina.elastic, anims[1]); 
+			Snap.animate(from, to, function(val) { element.attr(name, val);  }, timeTo, mina.elastic, anims[1]); 
 		},
 		function() {
-			Snap.animate(to, from, function(val) { el.attr(name, val); }, 50, mina.bounce);
+			Snap.animate(to, from, function(val) { element.attr(name, val); }, timeFrom, mina.bounce);
 		}
 	];
 	anims[0]();		
 }
 
-function setSelectionMode(selectionMode, animate=true) {
-	console.log(`Switching to selection mode: ${selectionMode}`);
-	select = selectionMode;
+/**
+ * Sets the type of object that is currently selectable
+ * @param {string} mode - the (class) name of DOM elements that should become selectable
+ * @param {boolean} animate - whether or not the corresponding elements should animate when they become selectable
+ */
+function setSelectionMode(mode, animate=true) {
+	console.log(`Switching to selection mode: ${mode}`);
+	select = mode;
 
 	if (animate) {
-		switch (selectionMode) {
+		switch (mode) {
 			case selectionModes.VERTEX:
 				s.selectAll('.vertex').forEach(el => animateCycle(el, 'r', vertexDrawRadius * 1.2, vertexDrawRadius));
 				break;
@@ -146,137 +175,110 @@ function setSelectionMode(selectionMode, animate=true) {
 	}
 }
 
-// Crease callback functions
-let callbackCreaseClicked = function() {
-	if (select === selectionModes.CREASE) {
-		deselectAllCreases();
 
-		if (tool === tools.PERPENDICULAR) {
-
-			if (selectionGroups[tool].maybeAddCrease(this)) {
-
-				this.addClass('crease-selected');
-				if (selectionGroups[tool].hasRequiredCreases) {
-					// Grab the start / end points of the selected crease, and convert them to vectors
-					let crease = selectionGroups[tool].creases[0];
-					const lineA = new Vec2(crease.attr().x1, crease.attr().y1);
-					const lineB = new Vec2(crease.attr().x2, crease.attr().y2);
-
-					// Grab the (previously) selected vertex, and convert it to a vector
-					let vertex = selectionGroups[tool].vertices[0];
-					let point = new Vec2(vertex.getBBox().cx, vertex.getBBox().cy);
-
-					// Calculate the point along the infinite line defined by the crease that is perpendicular
-					let perp = calculatePerpendicular(lineA, lineB, point);
-
-					// Add the new vertex
-					let perpVertex = addVertex(perp.x, perp.y);
-
-					drawCrease(vertex, perpVertex);
-				}
-
-				// Reset the selection mode
-				if (selectionGroups[tool].verticesFirst) {
-					setSelectionMode(selectionModes.VERTEX);
-				}
-
-				selectionGroups[tool].clear();
-				deselectAll(); 
-			}
-
-		}
-	
-	}
-}
-
-let callbackCreaseDoubleClicked = function() {
-	// TODO: figure out how to do this by cycling through the object keys
-	if (this.hasClass('mountain')) {
-		this.removeClass('mountain');
-		this.addClass('valley');
-	} else if (this.hasClass('valley')) {
-		this.removeClass('valley');
-		this.addClass('mountain');
-	} else {
-		this.addClass('mountain');
-	}
-}
-
-// Vertex callback functions
-let callbackVertexClicked = function() {
+function checkSelectionStatus() {
+	let didComplete = false;
 
 	if (tool === tools.LINE_SEGMENT) {
 
-		let nodeIndex = addVertex(this.getBBox().cx, this.getBBox().cy);
+		if (selectionGroups[tool].hasRequiredVertices) {
+			// Add a crease between the two selected vertices
+			addCrease(selectionGroups[tool].vertices[0], selectionGroups[tool].vertices[1]);
 
-		if (selectionGroups[tool].maybeAddVertex(nodeIndex)) {
-
-			this.addClass('vertex-selected');
-
-			if (selectionGroups[tool].isComplete) {
-				// Add a crease between the two selected vertices
-				addCrease(g.vertices[selectionGroups[tool].vertices[0]].x,
-						  g.vertices[selectionGroups[tool].vertices[0]].y,
-						  g.vertices[selectionGroups[tool].vertices[1]].x,
-						  g.vertices[selectionGroups[tool].vertices[1]].y); 
-
-				// Clear the selection group and deselect all SVG elements
-				selectionGroups[tool].clear();
-				deselectAll();
-			} 
-		} 
-
+			didComplete = true;
+		}
 
 	} else if (tool === tools.LINE) {
 
 	} else if (tool === tools.INCENTER) {
 
+		if (selectionGroups[tool].hasRequiredVertices) {
+			// Create 3 new creases that join each of the 3 points to their incenter
+			const incenter = calculateTriangleIncenter(selectionGroups[tool].vertices[0], 
+													   selectionGroups[tool].vertices[1], 
+													   selectionGroups[tool].vertices[2]);
 
-		let vertex = addVertex(this.getBBox().cx, this.getBBox().cy);
-		vertex.addClass('vertex-selected');
-
-		if (selectionGroups[tool].maybeAddVertex(vertex)) {
-			if (selectionGroups[tool].isComplete) {
-				// Convert the selected SVG elements to vectors so that we can operate on them
-				let vectors = selectionGroups[tool].vertices.map(el => new Vec2(el.getBBox().cx, el.getBBox().cy));
-
-				// Calculate the incenter of the 3 points
-				const incenter = calculateTriangleIncenter(vectors[0], vectors[1], vectors[2]);
-
-				// Add a vertex at the incenter
-				let elementB = addVertex(incenter.x, incenter.y);
-
-				// Create 3 new creases that join each of the 3 points to their incenter
-				selectionGroups[tool].vertices.forEach(elementA => addCrease(elementA, elementB));
-
-				// Clear the selection group and deselect all SVG elements
-				selectionGroups[tool].clear();
-				deselectAllVertices();
-			} 
-		} 
-
+			selectionGroups[tool].vertices.forEach(v => addCrease(v, incenter));
+			didComplete = true;
+		}
 
 	} else if (tool === tools.PERPENDICULAR) {
 
+		if (selectionGroups[tool].hasRequiredVertices) {
+			if (selectionGroups[tool].hasRequiredCreases) {
+				// Drop a perpendicular from the specified vertex to the specified crease
+				let perp = calculatePerpendicular(selectionGroups[tool].creases[0][0], 
+												  selectionGroups[tool].creases[0][1], 
+												  selectionGroups[tool].vertices[0]);
 
-		let vertex = addVertex(this.getBBox().cx, this.getBBox().cy);
-		vertex.addClass('vertex-selected');
+				addCrease(selectionGroups[tool].vertices[0], perp);
 
-		if (selectionGroups[tool].maybeAddVertex(vertex)) {
-			if (selectionGroups[tool].hasRequiredVertices) {
+				didComplete = true;
+			} else {
 				setSelectionMode(selectionModes.CREASE);
-			} 
-		} 
+			}
+		}
 
+	}
 
+	if (didComplete) {
+		// Clear the selection group and deselect all SVG elements
+		selectionGroups[tool].clear();
+		deselectAll();
+
+		if (selectionGroups[tool].verticesFirst) {
+			setSelectionMode(selectionModes.VERTEX);
+		}
 	}
 }
 
+function cycleCreaseAssignmet(element) {
+	if (element.hasClass(creaseAssignment.MOUNTAIN)) {
+		// Move from M -> V
+		element.removeClass(creaseAssignment.MOUNTAIN);
+		element.addClass(creaseAssignment.VALLEY);
+	} else if (element.hasClass(creaseAssignment.VALLEY)) {
+		// Move from V -> B
+		element.removeClass(creaseAssignment.VALLEY);
+		element.addClass(creaseAssignment.BORDER);
+	} else if (element.hasClass(creaseAssignment.BORDER)) {
+		// Move from B -> M
+		element.removeClass(creaseAssignment.BORDER);
+		element.addClass(creaseAssignment.MOUNTAIN);
+	} else {
+		// No assignment: set to border
+		element.addClass(creaseAssignment.BORDER);
+	}
+}
+
+// Crease callback functions
+let callbackCreaseClicked = function() {
+
+	let position0 = new Vec2(this.attr().x1, this.attr().y1);
+	let position1 = new Vec2(this.attr().x2, this.attr().y2);
+
+	selectionGroups[tool].maybeRecordCrease([position0, position1]);
+	checkSelectionStatus();
+}
+
+let callbackCreaseDoubleClicked = function() {
+	cycleCreaseAssignmet(this);
+}
+
+// Vertex callback functions
+let callbackVertexClicked = function() {
+
+	let position = new Vec2(this.getBBox().cx, this.getBBox().cy);
+
+	selectionGroups[tool].maybeRecordVertex(position);
+	checkSelectionStatus();
+}
+
 let callbackVertexHoverEnter = function() {
-	this.attr({'r': vertexDrawRadius * 1.5});
+	this.attr({'r': vertexDrawRadius * 2});
 }
 let callbackVertexHoverExit = function() {
-	this.attr({'r': vertexDrawRadius});
+	this.attr({'r': vertexDrawRadius * 1});
 }
 
 
@@ -299,19 +301,31 @@ function removeElementWithIndex(selector, index) {
 	return false;
 }
 
-// Adds a crease (an SVG line element) between the center points of the two specified SVG elements
-function addCrease(x0, y0, x1, y1) {
 
-	let nodeIndexA = addVertex(x0, y0);
-	let nodeIndexB = addVertex(x1, y1);
 
-	let edgeIndex = g.addEdge(nodeIndexA, nodeIndexB);
+
+
+
+/**
+ * Attempts to add a new edge to the planar graph
+ * @param {Vec2} a - the first endpoint of the edge
+ * @param {Vec2} b - the second endpoint of the edge	
+ */
+function addCrease(a, b) {
+
+	let index0 = addVertex(a);
+	let index1 = addVertex(b);
+	let edgeIndex = g.addEdge(index0, index1);
 
 	drawCrease(edgeIndex)
 
 	return crease;
 }
 
+/**
+ * Draws a virtual crease (i.e. an SVG line segment)
+ * @param {number} index - the index of the edge in the underlying planar graph that this crease corresponds to	
+ */
 function drawCrease(index) {
 
 	if (removeElementWithIndex('.crease', index)) {
@@ -333,8 +347,6 @@ function drawCrease(index) {
 	svg.dblclick(callbackCreaseDoubleClicked);
 	svg.append(Snap.parse(`<title>Edge: ${index}</title>`));
 
-	// Always draw creases "behind" the existing vertices
-	// 
 	// TODO: does Snap support z-ordering at all?
 	const existingSVGvertices = s.selectAll('.vertex');
 	if (existingSVGvertices.length > 0) {
@@ -342,9 +354,13 @@ function drawCrease(index) {
 	}
 }
 
-function addVertex(x, y) {
+/**
+ * Attempts to add a new node to the planar graph
+ * @param {Vec2} p - the position of the node
+ */
+function addVertex(p) {
 
-	const [nodeIndex, changedEdgeIndices] = g.addNode(new Vec2(x, y));
+	const [nodeIndex, changedEdgeIndices] = g.addNode(p);
 
 	// Draw the vertex
 	drawVertex(nodeIndex);
@@ -357,7 +373,10 @@ function addVertex(x, y) {
 	return nodeIndex;
 }
 
-
+/**
+ * Draws a virtual vertex (i.e. an SVG circle)
+ * @param {number} index - the index of the node in the underlying planar graph that this vertex corresponds to	
+ */
 function drawVertex(index) {
 
 	if (removeElementWithIndex('.vertex', index)) {
@@ -372,8 +391,8 @@ function drawVertex(index) {
 
 	svg.addClass('vertex');
 	svg.data('index', index);
-	svg.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
 	svg.click(callbackVertexClicked);
+	svg.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
 	svg.append(Snap.parse(`<title>Vertex: ${index}</title>`));
 }
 
@@ -382,12 +401,18 @@ function drawVertex(index) {
 
 
 
+
+
+
+
 function drawGridPoint(x, y) {
-	const w = 6;
-	const h = 6;
-	let gridPoint = s.rect(x - w * 0.5, y - h * 0.5, w, h);
-	gridPoint.addClass('grid-point');
-	gridPoint.click(callbackVertexClicked);
+	const w = gridPointDrawRadius;
+	const h = gridPointDrawRadius;
+
+	let svg = s.rect(x - w * 0.5, y - h * 0.5, w, h);
+
+	svg.addClass('grid-point');
+	svg.click(callbackVertexClicked);
 }
 
 function constructGrid() {
