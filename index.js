@@ -1,7 +1,7 @@
 import { PlanarGraph } from './graph.js';
 import { Vec2 } from './math.js';
 import { SelectionGroup } from './selection_group.js';
-import { calculateTriangleIncenter, calculatePerpendicular } from './geometry.js';
+import { calculateTriangleIncenter, calculatePerpendicular, closeTo } from './geometry.js';
 
 const snapsvg = require('snapsvg');
 
@@ -101,8 +101,8 @@ const selectionModes = {
 // Configuration for application start
 let select = selectionModes.VERTEX;
 let tool = tools.LINE_SEGMENT;
-let gridDivsX = 5;
-let gridDivsY = 5;
+let gridDivsX = 10;
+let gridDivsY = 10;
 const gridPointDrawRadius = 6;
 const vertexDrawRadius = 6;
 const creaseStrokeWidth = 4;
@@ -313,6 +313,12 @@ function removeElementWithIndex(selector, index) {
  */
 function addCrease(a, b) {
 
+	// Don't add a crease if the two points are the same (or extremely close to one another)
+	if (closeTo(a, b)) {
+		console.log('No crease created - the specified points are overlapping');
+		return;
+	}
+
 	let index0 = addVertex(a);
 	let index1 = addVertex(b);
 	let edgeIndex = g.addEdge(index0, index1);
@@ -360,14 +366,15 @@ function drawCrease(index) {
  */
 function addVertex(p) {
 
-	const [nodeIndex, changedEdgeIndices] = g.addNode(p);
+	const [nodeIndex, edgeIndices] = g.addNode(p);
 
 	// Draw the vertex
 	drawVertex(nodeIndex);
 	
 	// Draw any changed creases
-	changedEdgeIndices.forEach(edgeIndex => {
-		// drawCrease(...) 
+	edgeIndices.forEach(index => {
+		drawCrease(index); 
+		console.log(`Changed edge ${index}`);
 	});
 
 	return nodeIndex;

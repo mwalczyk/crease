@@ -9,64 +9,109 @@ exports.calculateLineSegmentIntersection = calculateLineSegmentIntersection;
 exports.calculatePerpendicular = calculatePerpendicular;
 exports.isOnLineSegment = isOnLineSegment;
 exports.findClosestTo = findClosestTo;
+exports.closeTo = closeTo;
 
 var _math = require("./math.js");
 
-// Calculates the incenter of the triangle formed by the 3 specified vectors
-function calculateTriangleIncenter(vertexA, vertexB, vertexC) {
-  var A = vertexA;
-  var B = vertexB;
-  var C = vertexC;
-  var a = B.distance(C);
-  var b = A.distance(C);
-  var c = A.distance(B);
-  var invP = 1.0 / (a + b + c);
-  var incenter = new _math.Vec2((a * A.x + b * B.x + c * C.x) * invP, (a * A.y + b * B.y + c * C.y) * invP);
+/**
+ * Calculates the incenter of the triangle formed by 3 points
+ * @param {Vec2} a - the first point
+ * @param {Vec2} b - the second point
+ * @param {Vec2} c - the third point
+ */
+function calculateTriangleIncenter(a, b, c) {
+  var A = b.distance(c);
+  var B = a.distance(c);
+  var C = a.distance(b);
+  var invP = 1.0 / (A + B + C);
+  var incenter = new _math.Vec2((A * a.x + B * b.x + C * c.x) * invP, (A * a.y + B * b.y + C * c.y) * invP);
   return incenter;
 }
+/**
+ * Calculates the intersection between two line segments or `null` if they do not intersect
+ * @param {Vec2} a - the start of the first line segment
+ * @param {Vec2} b - the end of the first line segment
+ * @param {Vec2} c - the start of the second line segment
+ * @param {Vec2} d - the end of the second line segment
+ */
+
 
 function calculateLineSegmentIntersection(a, b, c, d) {
-  var s1_x = b.x - a.x;
-  var s1_y = b.y - a.y;
-  var s2_x = d.x - c.x;
-  var s2_y = d.y - c.y;
-  var s = (-s1_y * (a.x - c.x) + s1_x * (a.y - c.y)) / (-s2_x * s1_y + s1_x * s2_y);
-  var t = (s2_x * (a.y - c.y) - s2_y * (a.x - c.x)) / (-s2_x * s1_y + s1_x * s2_y);
+  var deltaX0 = b.x - a.x;
+  var deltaY0 = b.y - a.y;
+  var deltaX1 = d.x - c.x;
+  var deltaY1 = d.y - c.y;
+  var denom = -deltaX1 * deltaY0 + deltaX0 * deltaY1;
+  var s = (-deltaY0 * (a.x - c.x) + deltaX0 * (a.y - c.y)) / denom;
+  var t = (deltaX1 * (a.y - c.y) - deltaY1 * (a.x - c.x)) / denom;
 
   if (s >= 0.0 && s <= 1.0 && t >= 0.0 && t <= 1.0) {
-    return new _math.Vec2(a.x + t * s1_x, a.y + t * s1_y);
+    return new _math.Vec2(a.x + t * deltaX0, a.y + t * deltaY0);
   }
 
   return null;
 }
+/**
+ * Calculates the perpendicular on a line from a given point
+ * @param {Vec2} a - the start of the line segment
+ * @param {Vec2} b - the end of the line segment
+ * @param {Vec2} p - the point to drop a perpendicular from  
+ */
 
-function calculatePerpendicular(lineA, lineB, point) {
-  var num = (lineB.y - lineA.y) * (point.x - lineA.x) - (lineB.x - lineA.x) * (point.y - lineA.y);
-  var den = Math.pow(lineB.y - lineA.y, 2) + Math.pow(lineB.x - lineA.x, 2);
-  var k = num / den;
-  return new _math.Vec2(point.x - k * (lineB.y - lineA.y), point.y + k * (lineB.x - lineA.x));
-} // Check if the specified point lies along the specified line segment
+
+function calculatePerpendicular(a, b, p) {
+  var numer = (b.y - a.y) * (p.x - a.x) - (b.x - a.x) * (p.y - a.y);
+  var denom = Math.pow(b.y - a.y, 2.0) + Math.pow(b.x - a.x, 2.0);
+  var k = numer / denom;
+  return new _math.Vec2(p.x - k * (b.y - a.y), p.y + k * (b.x - a.x));
+}
+/**
+ * Check if the specified point lies along the specified line segment
+ * @param {Vec2} a - the start of the line segment
+ * @param {Vec2} b - the end of the line segment
+ * @param {Vec2} p - the point to test 
+ * @param {boolean} includeEndpoints - whether or not a point at either of the endpoints should be considered
+ * @param {number} eps - an epsilon (used for numerical stability)
+ */
 
 
-function isOnLineSegment(lineA, lineB, point) {
-  var eps = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 0.001;
-  // The length of the specified line segment
-  var ab = lineA.distance(lineB); // The lengths of the two sub-segments joining each endpoint to the specified point
+function isOnLineSegment(a, b, p) {
+  var includeEndpoints = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : false;
+  var eps = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 0.001;
+  // The total length of the line segment
+  var ab = a.distance(b); // The lengths of the two sub-segments joining each endpoint to the specified point
 
-  var ac = lineA.distance(point);
-  var cb = point.distance(lineB); // Return `false` if the specified point is one of the endpoints of the line segment
+  var ac = a.distance(p);
+  var cb = p.distance(b); // Return `false` if the specified point is one of the endpoints of the line segment
 
   return Math.abs(ac + cb - ab) < eps && Math.abs(ac) > eps && Math.abs(cb) > eps;
-} // Finds the index of the vertex that is closest to the specified target vertex 
+}
+/**
+ * Finds the index of the vertex that is closest to the specified target vertex 
+ * @param {Vec2} t - the target vertex
+ * @param {Vec2[]} ps - the array of vertices to test against
+ */
 
 
-function findClosestTo(target, vertices) {
-  var distances = vertices.map(function (v) {
-    return Math.hypot(v.x - target.x, v.y - target.y);
+function findClosestTo(t, ps) {
+  var distances = ps.map(function (v) {
+    return Math.hypot(v.x - t.x, v.y - t.y);
   });
   var index = distances.indexOf(Math.min.apply(Math, distances));
   var distance = distances[index];
   return [index, distance];
+}
+/**
+ * Determines whether the specified points are "close to" each other, i.e. the same
+ * @param {Vec2} a - the first point
+ * @param {Vec2} b - the second point
+ * @param {number} eps - an epsilon (used for numerical stability)
+ */
+
+
+function closeTo(a, b) {
+  var eps = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0.001;
+  return Math.abs(a.distance(b)) < eps;
 }
 
 },{"./math.js":4}],2:[function(require,module,exports){
@@ -147,28 +192,35 @@ var PlanarGraph = /*#__PURE__*/function () {
         console.log("Added node is very close to neighbor ".concat(indexOfClosest, " - returning existing index"));
         return [indexOfClosest, []];
       } else {
-        this.vertices.push(node); // Adding a new node to the graph may require splitting one or more edges
-        // in order to maintain planarity
+        this.vertices.push(node);
+        var modifiedEdges = this.splitEdgesAlong(this.nodeCount - 1); // The new node is added at the end of the list, so we return that index along 
+        // with any edges that may have changed / been created
 
-        this.splitEdgesAlong(node); // The new node is added at the end of the list and therefore has the index below
-
-        return [this.nodeCount - 1, []];
+        return [this.nodeCount - 1, modifiedEdges];
       }
     } // Splits any edges that contain the specified node in their interiors - we do not need
     // to split an edge when the specified node is one of its endpoints
 
   }, {
     key: "splitEdgesAlong",
-    value: function splitEdgesAlong(node) {
+    value: function splitEdgesAlong(nodeIndex) {
       var _this = this;
 
       var changedEdges = [];
       this.edges.forEach(function (edge, index) {
-        var onEdge = (0, _geometry.isOnLineSegment)(_this.vertices[edge[0]], _this.vertices[edge[1]], node);
+        var onEdge = (0, _geometry.isOnLineSegment)(_this.vertices[edge[0]], _this.vertices[edge[1]], _this.vertices[nodeIndex]);
 
         if (onEdge) {
-          console.log("The newly added node splits edge ".concat(index));
-          changedEdges.push(index);
+          // Create the two new edges
+          var childEdgeA = [_this.edges[index][0], nodeIndex];
+          var childEdgeB = [_this.edges[index][1], nodeIndex]; // Put one of them in the place of the old, un-split edge and the other 
+          // at the end of the array
+
+          _this.edges[index] = childEdgeA;
+
+          _this.edges.push(childEdgeB);
+
+          changedEdges.push(index, _this.edgeCount - 1);
         }
       });
       return changedEdges;
@@ -348,8 +400,8 @@ var selectionModes = {
 
 var select = selectionModes.VERTEX;
 var tool = tools.LINE_SEGMENT;
-var gridDivsX = 5;
-var gridDivsY = 5;
+var gridDivsX = 10;
+var gridDivsY = 10;
 var gridPointDrawRadius = 6;
 var vertexDrawRadius = 6;
 var creaseStrokeWidth = 4;
@@ -547,6 +599,12 @@ function removeElementWithIndex(selector, index) {
 
 
 function addCrease(a, b) {
+  // Don't add a crease if the two points are the same (or extremely close to one another)
+  if ((0, _geometry.closeTo)(a, b)) {
+    console.log('No crease created - the specified points are overlapping');
+    return;
+  }
+
   var index0 = addVertex(a);
   var index1 = addVertex(b);
   var edgeIndex = g.addEdge(index0, index1);
@@ -589,12 +647,14 @@ function addVertex(p) {
   var _g$addNode = g.addNode(p),
       _g$addNode2 = _slicedToArray(_g$addNode, 2),
       nodeIndex = _g$addNode2[0],
-      changedEdgeIndices = _g$addNode2[1]; // Draw the vertex
+      edgeIndices = _g$addNode2[1]; // Draw the vertex
 
 
   drawVertex(nodeIndex); // Draw any changed creases
 
-  changedEdgeIndices.forEach(function (edgeIndex) {// drawCrease(...) 
+  edgeIndices.forEach(function (index) {
+    drawCrease(index);
+    console.log("Changed edge ".concat(index));
   });
   return nodeIndex;
 }

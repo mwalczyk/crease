@@ -10,6 +10,10 @@ html, body {
 	display: flex;	
 }
 
+#tool-icons.container {
+	flex-direction: column;
+}
+
 .item {
 	border: 1em hsl(120, 1%, 15%) solid;
 }

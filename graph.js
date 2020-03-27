@@ -48,28 +48,34 @@ export class PlanarGraph {
 			return [indexOfClosest, []];
 		} else {
 			this.vertices.push(node);
-			
-			// Adding a new node to the graph may require splitting one or more edges
-			// in order to maintain planarity
-			this.splitEdgesAlong(node);	
+			const modifiedEdges = this.splitEdgesAlong(this.nodeCount - 1);	
 
-			// The new node is added at the end of the list and therefore has the index below
-			return [this.nodeCount - 1, []];
+			// The new node is added at the end of the list, so we return that index along 
+			// with any edges that may have changed / been created
+			return [this.nodeCount - 1, modifiedEdges];
 		}
 	}
 
 	// Splits any edges that contain the specified node in their interiors - we do not need
 	// to split an edge when the specified node is one of its endpoints
-	splitEdgesAlong(node) {
+	splitEdgesAlong(nodeIndex) {
 		let changedEdges = [];
 
 		this.edges.forEach((edge, index) => {
 			const onEdge = isOnLineSegment(this.vertices[edge[0]],
 										   this.vertices[edge[1]],
-										   node);
+										   this.vertices[nodeIndex]);
 			if (onEdge) {
-				console.log(`The newly added node splits edge ${index}`);
-				changedEdges.push(index);
+				// Create the two new edges
+				const childEdgeA = [this.edges[index][0], nodeIndex];
+				const childEdgeB = [this.edges[index][1], nodeIndex]; 
+
+				// Put one of them in the place of the old, un-split edge and the other 
+				// at the end of the array
+				this.edges[index] = childEdgeA;
+				this.edges.push(childEdgeB);
+	
+				changedEdges.push(index, this.edgeCount - 1);
 			}
 		});
 
