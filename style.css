@@ -33,6 +33,14 @@ html, body {
 	background-color: hsl(120, 1%, 23%);
 }
 
+svg .grid-point {
+	fill: hsl(5, 0%, 60%);
+}
+
+svg .grid-point:hover {
+	fill: hsl(5, 0%, 50%);
+}
+
 svg .vertex {
 	fill: hsl(221, 12%, 60%);
 }

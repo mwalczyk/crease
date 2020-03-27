@@ -43,9 +43,10 @@ export class PlanarGraph {
 			
 			// Adding a new node to the graph may require splitting one or more edges
 			// in order to maintain planarity
-			this.splitEdgesAlong(node);
+			this.splitEdgesAlong(node);	
 
-			return [this.nodeCount, []];
+			// The new node is added at the end of the list and therefore has the index below
+			return [this.nodeCount - 1, []];
 		}
 	}
 
@@ -97,7 +98,7 @@ export class PlanarGraph {
 			}
 		})
 
-		
+		return this.edgeCount - 1;
 	}
 
 	deleteVertex(index) {

@@ -53,6 +53,7 @@ console.log(`SVG size: ${w} x ${h}`);
 
 document.addEventListener('keydown', function(event) {
     if (event.keyCode == 13) {
+    	console.log(g.vertices);
     	console.log(g.edges);
     }
 });
@@ -98,15 +99,15 @@ let select = selectionModes.VERTEX;
 let tool = tools.LINE_SEGMENT;
 let gridDivsX = 5;
 let gridDivsY = 5;
-const vertexDrawRadius = 4;
+const vertexDrawRadius = 6;
 const creaseStrokeWidth = 4;
 
 function deselectAllVertices() {
-	s.selectAll('.vertex').forEach(el => el.removeClass('vertex-selected'));
+	s.selectAll('.vertex-selected').forEach(el => el.removeClass('vertex-selected'));
 }
 
 function deselectAllCreases() {
-	s.selectAll('.crease').forEach(el => el.removeClass('crease-selected'));
+	s.selectAll('.crease-selected').forEach(el => el.removeClass('crease-selected'));
 }
 
 function deselectAll() {
@@ -153,6 +154,7 @@ let callbackCreaseClicked = function() {
 		if (tool === tools.PERPENDICULAR) {
 
 			if (selectionGroups[tool].maybeAddCrease(this)) {
+
 				this.addClass('crease-selected');
 				if (selectionGroups[tool].hasRequiredCreases) {
 					// Grab the start / end points of the selected crease, and convert them to vectors
@@ -168,7 +170,7 @@ let callbackCreaseClicked = function() {
 					let perp = calculatePerpendicular(lineA, lineB, point);
 
 					// Add the new vertex
-					let perpVertex = drawVertex(perp.x, perp.y, vertexType.ACTIVE);
+					let perpVertex = addVertex(perp.x, perp.y);
 
 					drawCrease(vertex, perpVertex);
 				}
@@ -200,103 +202,74 @@ let callbackCreaseDoubleClicked = function() {
 	}
 }
 
-// function drawCrease(x0, y0, x1, y1) {
-// 	const label = Snap.parse(`<title>Edge: ${g.edges.length}</title>`);
-
-// 	let crease = s.line(x0, y0, x1, y1);
-// 	crease.data('index', g.edges.length);
-// 	crease.click(callbackCreaseClicked);
-// 	crease.dblclick(callbackCreaseDoubleClicked);
-// 	crease.addClass('crease');
-// 	crease.append(label);
-
-// 	return crease;
-// }
-
-// Adds a crease (an SVG line element) between the center points of the two specified SVG elements
-function drawCrease(elA, elB) {
-	const label = Snap.parse(`<title>Edge: ${g.edges.length}, Connects Vertices: ${elA.data('index')}, ${elB.data('index')}</title>`);
-	const vertices = s.selectAll('.vertex');
-
-	let crease = s.line(
-		elA.getBBox().cx,
-		elA.getBBox().cy,
-		elB.getBBox().cx,
-		elB.getBBox().cy
-	);
-	crease.addClass('crease');
-	crease.data('index', g.edges.length);
-	crease.click(callbackCreaseClicked);
-	crease.dblclick(callbackCreaseDoubleClicked);
-	crease.append(label);
-
-	// Always draw creases "behind" the existing vertices
-	crease.insertBefore(vertices[0]);
-
-	g.addEdge(elA.data('index'), elB.data('index'));
-
-	return crease;
-}
-
-
-
-
-
-
-
 // Vertex callback functions
 let callbackVertexClicked = function() {
 
 	if (tool === tools.LINE_SEGMENT) {
 
-		if (selectionGroups[tool].maybeAddVertex(this)) {
-			this.addClass('vertex-selected');
-			if (selectionGroups[tool].isComplete) {
-				// Add the new crease
-				drawCrease(selectionGroups[tool].vertices[0], selectionGroups[tool].vertices[1]);
+		let nodeIndex = addVertex(this.getBBox().cx, this.getBBox().cy);
 
+		if (selectionGroups[tool].maybeAddVertex(nodeIndex)) {
+
+			this.addClass('vertex-selected');
+
+			if (selectionGroups[tool].isComplete) {
+				// Add a crease between the two selected vertices
+				addCrease(g.vertices[selectionGroups[tool].vertices[0]].x,
+						  g.vertices[selectionGroups[tool].vertices[0]].y,
+						  g.vertices[selectionGroups[tool].vertices[1]].x,
+						  g.vertices[selectionGroups[tool].vertices[1]].y); 
+
+				// Clear the selection group and deselect all SVG elements
 				selectionGroups[tool].clear();
-				deselectAllVertices();
+				deselectAll();
 			} 
 		} 
+
 
 	} else if (tool === tools.LINE) {
 
-
 	} else if (tool === tools.INCENTER) {
 
-		if (selectionGroups[tool].maybeAddVertex(this)) {
-			this.addClass('vertex-selected');
+
+		let vertex = addVertex(this.getBBox().cx, this.getBBox().cy);
+		vertex.addClass('vertex-selected');
+
+		if (selectionGroups[tool].maybeAddVertex(vertex)) {
 			if (selectionGroups[tool].isComplete) {
 				// Convert the selected SVG elements to vectors so that we can operate on them
-				let vertices = selectionGroups[tool].vertices.map(el => new Vec2(el.getBBox().cx, el.getBBox().cy));
+				let vectors = selectionGroups[tool].vertices.map(el => new Vec2(el.getBBox().cx, el.getBBox().cy));
 
 				// Calculate the incenter of the 3 points
-				const incenter = calculateTriangleIncenter(vertices[0], vertices[1], vertices[2]);
+				const incenter = calculateTriangleIncenter(vectors[0], vectors[1], vectors[2]);
 
-				// Add the new vertex
-				let elB = drawVertex(incenter.x, incenter.y, vertexType.ACTIVE);
+				// Add a vertex at the incenter
+				let elementB = addVertex(incenter.x, incenter.y);
 
 				// Create 3 new creases that join each of the 3 points to their incenter
-				selectionGroups[tool].vertices.forEach(elA => drawCrease(elA, elB));
+				selectionGroups[tool].vertices.forEach(elementA => addCrease(elementA, elementB));
 
+				// Clear the selection group and deselect all SVG elements
 				selectionGroups[tool].clear();
 				deselectAllVertices();
 			} 
 		} 
 
+
 	} else if (tool === tools.PERPENDICULAR) {
 
-		if (selectionGroups[tool].maybeAddVertex(this)) {
-			this.addClass('vertex-selected');
+
+		let vertex = addVertex(this.getBBox().cx, this.getBBox().cy);
+		vertex.addClass('vertex-selected');
+
+		if (selectionGroups[tool].maybeAddVertex(vertex)) {
 			if (selectionGroups[tool].hasRequiredVertices) {
 				setSelectionMode(selectionModes.CREASE);
 			} 
 		} 
 
-	}
 
-	
+	}
 }
 
 let callbackVertexHoverEnter = function() {
@@ -306,9 +279,15 @@ let callbackVertexHoverExit = function() {
 	this.attr({'r': vertexDrawRadius});
 }
 
+
+
+
+
+
+
 function findElementWithIndex(selector, index) {
 	const elements = Array.from(s.selectAll(selector));
-	return elements.find(el => el.data('index') === index);
+	return elements.find(element => element.data('index') === index);
 }
 
 function removeElementWithIndex(selector, index) {
@@ -320,51 +299,98 @@ function removeElementWithIndex(selector, index) {
 	return false;
 }
 
+// Adds a crease (an SVG line element) between the center points of the two specified SVG elements
+function addCrease(x0, y0, x1, y1) {
 
+	let nodeIndexA = addVertex(x0, y0);
+	let nodeIndexB = addVertex(x1, y1);
 
-function drawVertex(x, y, type) {
-	// First, add a new node to the planar graph - this returns the index of either
-	// an existing node or a new node
+	let edgeIndex = g.addEdge(nodeIndexA, nodeIndexB);
+
+	drawCrease(edgeIndex)
+
+	return crease;
+}
+
+function drawCrease(index) {
+
+	if (removeElementWithIndex('.crease', index)) {
+		console.log(`Crease SVG with stored index ${index} was removed and re-added`);
+	} else {
+		console.log(`Crease SVG with stored index: ${index} was newly added`);
+	}
+
+	let svg = s.line(
+		g.vertices[g.edges[index][0]].x,
+		g.vertices[g.edges[index][0]].y,
+		g.vertices[g.edges[index][1]].x,
+		g.vertices[g.edges[index][1]].y
+	);
+
+	svg.addClass('crease');
+	svg.data('index', index);
+	svg.click(callbackCreaseClicked);
+	svg.dblclick(callbackCreaseDoubleClicked);
+	svg.append(Snap.parse(`<title>Edge: ${index}</title>`));
+
+	// Always draw creases "behind" the existing vertices
+	// 
+	// TODO: does Snap support z-ordering at all?
+	const existingSVGvertices = s.selectAll('.vertex');
+	if (existingSVGvertices.length > 0) {
+		svg.insertBefore(existingSVGvertices[0]);
+	}
+}
+
+function addVertex(x, y) {
+
 	const [nodeIndex, changedEdgeIndices] = g.addNode(new Vec2(x, y));
-	removeElementWithIndex('.vertex', nodeIndex);
 
-	let vertex = s.circle(x, y, vertexDrawRadius);
-	vertex.data('type', type);
-	vertex.data('index', nodeIndex);
-	vertex.addClass('vertex');
-	vertex.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
-	vertex.click(callbackVertexClicked);
-	vertex.append(Snap.parse(`<title>Vertex: ${nodeIndex}</title>`));
-
+	// Draw the vertex
+	drawVertex(nodeIndex);
+	
+	// Draw any changed creases
 	changedEdgeIndices.forEach(edgeIndex => {
-		// Remove and re-add them?
+		// drawCrease(...) 
 	});
 
-	return vertex;
+	return nodeIndex;
+}
+
+
+function drawVertex(index) {
+
+	if (removeElementWithIndex('.vertex', index)) {
+		console.log(`Vertex SVG with stored index ${index} was removed and re-added`);
+	} else {
+		console.log(`Vertex SVG with stored index: ${index} was newly added`);
+	}
+
+	let svg = s.circle(g.vertices[index].x, 
+					   g.vertices[index].y, 
+					   vertexDrawRadius);
+
+	svg.addClass('vertex');
+	svg.data('index', index);
+	svg.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
+	svg.click(callbackVertexClicked);
+	svg.append(Snap.parse(`<title>Vertex: ${index}</title>`));
 }
 
 
 
+
+
+
+function drawGridPoint(x, y) {
+	const w = 6;
+	const h = 6;
+	let gridPoint = s.rect(x - w * 0.5, y - h * 0.5, w, h);
+	gridPoint.addClass('grid-point');
+	gridPoint.click(callbackVertexClicked);
+}
+
 function constructGrid() {
-
-	let svgVertices = Array.from(s.selectAll('.vertex'));
-
-	// // Remove all "grid" vertices, keeping any user-generated, "active" vertices in tact
-	// TODO
-	// var removeIndices = [];
-	// for (var index = 0; index < vertices.length; index++) {
-	// 	if (vertices[index].data('type') == vertexType.GRID) {
-	// 		// Record the index of this vertex so that it can be properly removed from the planar graph
-	// 		removeIndices.push(vertices[index].data('index'));
-	//
-	// 		// Remove the SVG element from the DOM
-	// 		vertices[index].remove();
-	// 	}
-	// }
-
-	// Make sure each of the SVG elements contains the right index
-	svgVertices.forEach((v, i) => v.data('index', i));	
-
 	const gridSizeX = w / 2;
 	const gridSizeY = h / 2;
 	const paperCenterX = gridSizeX;
@@ -376,11 +402,9 @@ function constructGrid() {
 			let percentY = y / (gridDivsY - 1);
 			let posX = percentX * gridSizeX + paperCenterX / 2;
 			let posY = percentY * gridSizeY + paperCenterY / 2;
-			drawVertex(posX, posY, vertexType.GRID);
+			drawGridPoint(posX, posY);
 		}
 	}
-
-	console.log(g.vertices)
 }
 
 // Add event listener to grid divisions slider
