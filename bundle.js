@@ -313,7 +313,25 @@ function _iterableToArrayLimit(arr, i) { if (typeof Symbol === "undefined" || !(
 
 function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 
-var snapsvg = require('snapsvg'); // To install:
+var snapsvg = require('snapsvg'); // Displays the element
+
+
+Element.prototype.show = function () {
+  this.attr('display', '');
+}; // Hides the element
+
+
+Element.prototype.hide = function () {
+  this.attr('display', 'none');
+};
+
+Element.prototype.toggleVisibility = function () {
+  if (this.attr().display === '') {
+    this.attr('display', 'none');
+  } else {
+    this.attr('display', '');
+  }
+}; // Setting up the dev environment:
 // 
 // 1) First, in this directory run:
 //
@@ -329,28 +347,30 @@ var snapsvg = require('snapsvg'); // To install:
 //
 // Some references:
 //
-// 		[1](http://svg.dabbles.info/snaptut-dragscale)
-//		[2](https://github.com/adobe-webplatform/Snap.svg/issues/420)
-//		[3](https://gist.github.com/osvik/0185cb4381b35aad3d3e1f5438ca5ca4#create-objects-with-snap)
-//		[4](https://www.w3schools.com/colors/colors_picker.asp)
-//		[5](https://css-tricks.com/snippets/css/a-guide-to-flexbox/)
-//		[6](https://www.sohamkamani.com/blog/2017/08/21/enums-in-javascript/)
-//		[7](https://gist.github.com/osvik/0185cb4381b35aad3d3e1f5438ca5ca4)
-// 		[8](https://www.abcdinamo.com/typefaces/whyte)
+// 		[Snap SVG Tutorials](http://svg.dabbles.info/snaptut-dragscale)
+//		[Snap SVG Cheat Sheet](https://gist.github.com/osvik/0185cb4381b35aad3d3e1f5438ca5ca4)
+//		[Guide to CSS Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/)
+//		[Using Enums in Javascript](https://www.sohamkamani.com/blog/2017/08/21/enums-in-javascript/)
+// 		[Figma Typeface](https://www.abcdinamo.com/typefaces/whyte)
+//		[CORS and WebGL Textures](https://webgl2fundamentals.org/webgl/lessons/webgl-cors-permission.html)
 //
 //	Math stuff:
 //
-// 		[1](https://stackoverflow.com/questions/1811549/perpendicular-on-a-line-from-a-given-point)
-//		[2](https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect)
-//		[3](https://www.mathopenref.com/coordincenter.html)
+// 		[Calculating Perpendiculars](https://stackoverflow.com/questions/1811549/perpendicular-on-a-line-from-a-given-point)
+//		[Calculating Line Segment Intersections](https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect)
+//		[Calculating Triangle Incenters](https://www.mathopenref.com/coordincenter.html)
 //
-//	Docs:
+//	Docstring inspiration:
 //
-//		[1](https://github.com/greggman/twgl.js/blob/master/src/textures.js)
+//		[TWGL](https://github.com/greggman/twgl.js/blob/master/src/textures.js)
 //
 // To run:
 //
 // 		watchify index.js -o bundle.js
+//
+// or:
+//
+//		npm run bundle-watch
 //
 // An embedding of a planar graph, representing the crease pattern
 
@@ -362,12 +382,6 @@ var s = Snap('#svg');
 var w = s.attr().width;
 var h = s.attr().height;
 console.log("SVG size: ".concat(w, " x ").concat(h));
-document.addEventListener('keydown', function (event) {
-  if (event.keyCode == 13) {
-    console.log(g.vertices);
-    console.log(g.edges);
-  }
-});
 var creaseAssignment = {
   MOUNTAIN: 'mountain',
   VALLEY: 'valley',
@@ -744,6 +758,17 @@ toolIcons.forEach(function (element) {
     selectionGroups[tool].clear();
     setSelectionMode(selectionGroups[tool].verticesFirst ? selectionModes.VERTEX : selectionModes.CREASE);
   });
+});
+document.addEventListener('keydown', function (event) {
+  if (event.keyCode === 13) {
+    console.log('Nodes:', g.vertices);
+    console.log('Edges:', g.edges);
+  } else if (event.keyCode === 71) {
+    s.selectAll('.grid-point').forEach(function (element) {
+      var showOrHide = showOrHide === undefined ? element.attr('display') === 'none' : !!showOrHide;
+      element.attr('display', showOrHide ? '' : 'none');
+    });
+  }
 }); // Start the application
 
 constructGrid();
