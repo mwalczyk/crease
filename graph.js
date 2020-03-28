@@ -5,12 +5,12 @@ import { calculateLineSegmentIntersection, isOnLineSegment, findClosestTo } from
 export class PlanarGraph {
 
 	constructor() {
-		this.vertices = [];
+		this.nodes = [];
 		this.edges = [];
 	}
 
 	get nodeCount() {
-		return this.vertices.length;
+		return this.nodes.length;
 	}
 
 	get edgeCount() {
@@ -18,7 +18,7 @@ export class PlanarGraph {
 	}
 
 	nodeAt(index) {
-		return this.vertices[index];
+		return this.nodes[index];
 	}
 
 	edgeAt(index) {
@@ -35,7 +35,7 @@ export class PlanarGraph {
 	//    the new node
 	addNode(node, epsilon=0.001) {
 		// Check if the vertex is the same as an existing vertex (within epsilon)
-		const [indexOfClosest, distanceToClosest] = findClosestTo(node, this.vertices);
+		const [indexOfClosest, distanceToClosest] = findClosestTo(node, this.nodes);
 
 		// If the found distance is less than the specified threshold, the specified
 		// node is considered a "duplicate," so we return the index of the existing
@@ -47,7 +47,7 @@ export class PlanarGraph {
 			console.log(`Added node is very close to neighbor ${indexOfClosest} - returning existing index`)
 			return [indexOfClosest, []];
 		} else {
-			this.vertices.push(node);
+			this.nodes.push(node);
 			const modifiedEdges = this.splitEdgesAlong(this.nodeCount - 1);	
 
 			// The new node is added at the end of the list, so we return that index along 
@@ -62,9 +62,9 @@ export class PlanarGraph {
 		let changedEdges = [];
 
 		this.edges.forEach((edge, index) => {
-			const onEdge = isOnLineSegment(this.vertices[edge[0]],
-										   this.vertices[edge[1]],
-										   this.vertices[nodeIndex]);
+			const onEdge = isOnLineSegment(this.nodes[edge[0]],
+										   this.nodes[edge[1]],
+										   this.nodes[nodeIndex]);
 			if (onEdge) {
 				// Create the two new edges
 				const childEdgeA = [this.edges[index][0], nodeIndex];
@@ -95,10 +95,10 @@ export class PlanarGraph {
 		// let updatedEdges = [];
 		// this.edges.forEach((edge, index) => {
 		// 	const intersection = calculateLineSegmentIntersection(
-		// 		this.vertices[edge[0]],
-		// 		this.vertices[edge[1]],
-		// 		this.vertices[a],
-		// 		this.vertices[b]
+		// 		this.nodes[edge[0]],
+		// 		this.nodes[edge[1]],
+		// 		this.nodes[a],
+		// 		this.nodes[b]
 		// 	);
 
 		// 	if (intersection) {
@@ -115,25 +115,21 @@ export class PlanarGraph {
 		return this.edgeCount - 1;
 	}
 
-	deleteVertex(index) {
+	deleteNode(index) {
 		// First, remove the vertex at the specified index
-		this.vertices.splice(index, 1);
+		this.nodes.splice(index, 1);
 
 		// Then, delete any edges that contain the removed vertex 
 		this.deleteEdgesWithVertex(index);
 
-		// Finally, rebuild existing edges
-		// this.edges.forEach((e, i) => {
-		// 	if this.edges[i][0] > index {
-		// 		this.edges[i][0]--;
-		// 	}
-		// 	if this.edges[i][1] > index {
-		// 		this.edges[i][1]--;
-		// 	}
-		// });
+		let changedEdges = [];
+
+		// TODO: ...
+
+		return changedEdges;	
 	}
 
-	deleteEdgesWithVertex(index) {
+	deleteEdgesWithNode(index) {
 		this.edges = this.edges.filter(e => !e.includes(index));
 	}
 

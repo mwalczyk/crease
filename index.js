@@ -45,6 +45,7 @@ Element.prototype.toggleVisibility = function() {
 //		[Using Enums in Javascript](https://www.sohamkamani.com/blog/2017/08/21/enums-in-javascript/)
 // 		[Figma Typeface](https://www.abcdinamo.com/typefaces/whyte)
 //		[CORS and WebGL Textures](https://webgl2fundamentals.org/webgl/lessons/webgl-cors-permission.html)
+//		[Toggling Visibility](http://www.alexnormand.com/blog/2014/03/09-show-hide-an-element-and-add-remove-classes-from-an-element-with-snapsvg/)
 //
 //	Math stuff:
 //
@@ -265,12 +266,14 @@ function cycleCreaseAssignmet(element) {
 
 // Crease callback functions
 let callbackCreaseClicked = function() {
+	if (select === selectionModes.CREASE) {
+		this.addClass('crease-selected');
+		let position0 = new Vec2(this.attr().x1, this.attr().y1);
+		let position1 = new Vec2(this.attr().x2, this.attr().y2);
 
-	let position0 = new Vec2(this.attr().x1, this.attr().y1);
-	let position1 = new Vec2(this.attr().x2, this.attr().y2);
-
-	selectionGroups[tool].maybeRecordCrease([position0, position1]);
-	checkSelectionStatus();
+		selectionGroups[tool].maybeRecordCrease([position0, position1]);
+		checkSelectionStatus();
+	}	
 }
 
 let callbackCreaseDoubleClicked = function() {
@@ -279,12 +282,13 @@ let callbackCreaseDoubleClicked = function() {
 
 // Vertex callback functions
 let callbackVertexClicked = function() {
+	if (select === selectionModes.VERTEX) {
+		this.addClass('vertex-selected');
+		let position = new Vec2(this.getBBox().cx, this.getBBox().cy);
 
-	this.addClass('vertex-selected');
-	let position = new Vec2(this.getBBox().cx, this.getBBox().cy);
-
-	selectionGroups[tool].maybeRecordVertex(position);
-	checkSelectionStatus();
+		selectionGroups[tool].maybeRecordVertex(position);
+		checkSelectionStatus();
+	}
 }
 
 let callbackVertexHoverEnter = function() {
@@ -354,10 +358,10 @@ function drawCrease(index) {
 	}
 
 	let svg = s.line(
-		g.vertices[g.edges[index][0]].x,
-		g.vertices[g.edges[index][0]].y,
-		g.vertices[g.edges[index][1]].x,
-		g.vertices[g.edges[index][1]].y
+		g.nodes[g.edges[index][0]].x,
+		g.nodes[g.edges[index][0]].y,
+		g.nodes[g.edges[index][1]].x,
+		g.nodes[g.edges[index][1]].y
 	);
 
 	svg.addClass('crease');
@@ -405,8 +409,8 @@ function drawVertex(index) {
 		console.log(`Vertex SVG with stored index: ${index} was newly added`);
 	}
 
-	let svg = s.circle(g.vertices[index].x, 
-					   g.vertices[index].y, 
+	let svg = s.circle(g.nodes[index].x, 
+					   g.nodes[index].y, 
 					   vertexDrawRadius);
 
 	svg.addClass('vertex');
@@ -509,7 +513,7 @@ toolIcons.forEach(element => {
 
 document.addEventListener('keydown', function(event) {
     if (event.keyCode === 13) {
-    	console.log('Nodes:', g.vertices);
+    	console.log('Nodes:', g.nodes);
     	console.log('Edges:', g.edges);
     } else if (event.keyCode === 71) {
     	s.selectAll('.grid-point').forEach(element => {

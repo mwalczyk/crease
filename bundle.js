@@ -149,14 +149,14 @@ var PlanarGraph = /*#__PURE__*/function () {
   function PlanarGraph() {
     _classCallCheck(this, PlanarGraph);
 
-    this.vertices = [];
+    this.nodes = [];
     this.edges = [];
   }
 
   _createClass(PlanarGraph, [{
     key: "nodeAt",
     value: function nodeAt(index) {
-      return this.vertices[index];
+      return this.nodes[index];
     }
   }, {
     key: "edgeAt",
@@ -177,7 +177,7 @@ var PlanarGraph = /*#__PURE__*/function () {
       var epsilon = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0.001;
 
       // Check if the vertex is the same as an existing vertex (within epsilon)
-      var _findClosestTo = (0, _geometry.findClosestTo)(node, this.vertices),
+      var _findClosestTo = (0, _geometry.findClosestTo)(node, this.nodes),
           _findClosestTo2 = _slicedToArray(_findClosestTo, 2),
           indexOfClosest = _findClosestTo2[0],
           distanceToClosest = _findClosestTo2[1]; // If the found distance is less than the specified threshold, the specified
@@ -192,7 +192,7 @@ var PlanarGraph = /*#__PURE__*/function () {
         console.log("Added node is very close to neighbor ".concat(indexOfClosest, " - returning existing index"));
         return [indexOfClosest, []];
       } else {
-        this.vertices.push(node);
+        this.nodes.push(node);
         var modifiedEdges = this.splitEdgesAlong(this.nodeCount - 1); // The new node is added at the end of the list, so we return that index along 
         // with any edges that may have changed / been created
 
@@ -208,7 +208,7 @@ var PlanarGraph = /*#__PURE__*/function () {
 
       var changedEdges = [];
       this.edges.forEach(function (edge, index) {
-        var onEdge = (0, _geometry.isOnLineSegment)(_this.vertices[edge[0]], _this.vertices[edge[1]], _this.vertices[nodeIndex]);
+        var onEdge = (0, _geometry.isOnLineSegment)(_this.nodes[edge[0]], _this.nodes[edge[1]], _this.nodes[nodeIndex]);
 
         if (onEdge) {
           // Create the two new edges
@@ -235,10 +235,10 @@ var PlanarGraph = /*#__PURE__*/function () {
       // let updatedEdges = [];
       // this.edges.forEach((edge, index) => {
       // 	const intersection = calculateLineSegmentIntersection(
-      // 		this.vertices[edge[0]],
-      // 		this.vertices[edge[1]],
-      // 		this.vertices[a],
-      // 		this.vertices[b]
+      // 		this.nodes[edge[0]],
+      // 		this.nodes[edge[1]],
+      // 		this.nodes[a],
+      // 		this.nodes[b]
       // 	);
       // 	if (intersection) {
       // 		// If the new edge intersects (or touches) an existing edge, we need
@@ -251,24 +251,19 @@ var PlanarGraph = /*#__PURE__*/function () {
       return this.edgeCount - 1;
     }
   }, {
-    key: "deleteVertex",
-    value: function deleteVertex(index) {
+    key: "deleteNode",
+    value: function deleteNode(index) {
       // First, remove the vertex at the specified index
-      this.vertices.splice(index, 1); // Then, delete any edges that contain the removed vertex 
+      this.nodes.splice(index, 1); // Then, delete any edges that contain the removed vertex 
 
-      this.deleteEdgesWithVertex(index); // Finally, rebuild existing edges
-      // this.edges.forEach((e, i) => {
-      // 	if this.edges[i][0] > index {
-      // 		this.edges[i][0]--;
-      // 	}
-      // 	if this.edges[i][1] > index {
-      // 		this.edges[i][1]--;
-      // 	}
-      // });
+      this.deleteEdgesWithVertex(index);
+      var changedEdges = []; // TODO: ...
+
+      return changedEdges;
     }
   }, {
-    key: "deleteEdgesWithVertex",
-    value: function deleteEdgesWithVertex(index) {
+    key: "deleteEdgesWithNode",
+    value: function deleteEdgesWithNode(index) {
       this.edges = this.edges.filter(function (e) {
         return !e.includes(index);
       });
@@ -276,7 +271,7 @@ var PlanarGraph = /*#__PURE__*/function () {
   }, {
     key: "nodeCount",
     get: function get() {
-      return this.vertices.length;
+      return this.nodes.length;
     }
   }, {
     key: "edgeCount",
@@ -353,6 +348,7 @@ Element.prototype.toggleVisibility = function () {
 //		[Using Enums in Javascript](https://www.sohamkamani.com/blog/2017/08/21/enums-in-javascript/)
 // 		[Figma Typeface](https://www.abcdinamo.com/typefaces/whyte)
 //		[CORS and WebGL Textures](https://webgl2fundamentals.org/webgl/lessons/webgl-cors-permission.html)
+//		[Toggling Visibility](http://www.alexnormand.com/blog/2014/03/09-show-hide-an-element-and-add-remove-classes-from-an-element-with-snapsvg/)
 //
 //	Math stuff:
 //
@@ -559,10 +555,13 @@ function cycleCreaseAssignmet(element) {
 
 
 var callbackCreaseClicked = function callbackCreaseClicked() {
-  var position0 = new _math.Vec2(this.attr().x1, this.attr().y1);
-  var position1 = new _math.Vec2(this.attr().x2, this.attr().y2);
-  selectionGroups[tool].maybeRecordCrease([position0, position1]);
-  checkSelectionStatus();
+  if (select === selectionModes.CREASE) {
+    this.addClass('crease-selected');
+    var position0 = new _math.Vec2(this.attr().x1, this.attr().y1);
+    var position1 = new _math.Vec2(this.attr().x2, this.attr().y2);
+    selectionGroups[tool].maybeRecordCrease([position0, position1]);
+    checkSelectionStatus();
+  }
 };
 
 var callbackCreaseDoubleClicked = function callbackCreaseDoubleClicked() {
@@ -571,10 +570,12 @@ var callbackCreaseDoubleClicked = function callbackCreaseDoubleClicked() {
 
 
 var callbackVertexClicked = function callbackVertexClicked() {
-  this.addClass('vertex-selected');
-  var position = new _math.Vec2(this.getBBox().cx, this.getBBox().cy);
-  selectionGroups[tool].maybeRecordVertex(position);
-  checkSelectionStatus();
+  if (select === selectionModes.VERTEX) {
+    this.addClass('vertex-selected');
+    var position = new _math.Vec2(this.getBBox().cx, this.getBBox().cy);
+    selectionGroups[tool].maybeRecordVertex(position);
+    checkSelectionStatus();
+  }
 };
 
 var callbackVertexHoverEnter = function callbackVertexHoverEnter() {
@@ -639,7 +640,7 @@ function drawCrease(index) {
     console.log("Crease SVG with stored index: ".concat(index, " was newly added"));
   }
 
-  var svg = s.line(g.vertices[g.edges[index][0]].x, g.vertices[g.edges[index][0]].y, g.vertices[g.edges[index][1]].x, g.vertices[g.edges[index][1]].y);
+  var svg = s.line(g.nodes[g.edges[index][0]].x, g.nodes[g.edges[index][0]].y, g.nodes[g.edges[index][1]].x, g.nodes[g.edges[index][1]].y);
   svg.addClass('crease');
   svg.data('index', index);
   svg.click(callbackCreaseClicked);
@@ -686,7 +687,7 @@ function drawVertex(index) {
     console.log("Vertex SVG with stored index: ".concat(index, " was newly added"));
   }
 
-  var svg = s.circle(g.vertices[index].x, g.vertices[index].y, vertexDrawRadius);
+  var svg = s.circle(g.nodes[index].x, g.nodes[index].y, vertexDrawRadius);
   svg.addClass('vertex');
   svg.data('index', index);
   svg.click(callbackVertexClicked);
@@ -761,7 +762,7 @@ toolIcons.forEach(function (element) {
 });
 document.addEventListener('keydown', function (event) {
   if (event.keyCode === 13) {
-    console.log('Nodes:', g.vertices);
+    console.log('Nodes:', g.nodes);
     console.log('Edges:', g.edges);
   } else if (event.keyCode === 71) {
     s.selectAll('.grid-point').forEach(function (element) {

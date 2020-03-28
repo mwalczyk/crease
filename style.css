@@ -68,7 +68,7 @@ svg .crease {
 }
 
 svg .crease:hover {
-	stroke-width: 5;
+	stroke-width: 6;
 }
 
 svg .crease.valley {
