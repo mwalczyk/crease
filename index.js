@@ -101,23 +101,23 @@ const selectionModes = {
 // Configuration for application start
 let select = selectionModes.VERTEX;
 let tool = tools.LINE_SEGMENT;
-let gridDivsX = 10;
-let gridDivsY = 10;
-const gridPointDrawRadius = 6;
+let gridDivsX = 11;
+let gridDivsY = 11;
+const gridPointDrawRadius = 8;
 const vertexDrawRadius = 6;
 const creaseStrokeWidth = 4;
 
-function deselectAllVertices() {
+function removeSelectedClassFromVertices() {
 	s.selectAll('.vertex-selected').forEach(el => el.removeClass('vertex-selected'));
 }
 
-function deselectAllCreases() {
+function removeSelectedClassFromCreases() {
 	s.selectAll('.crease-selected').forEach(el => el.removeClass('crease-selected'));
 }
 
-function deselectAll() {
-	deselectAllVertices()
-	deselectAllCreases()
+function removeSelectedClass() {
+	removeSelectedClassFromVertices()
+	removeSelectedClassFromCreases()
 }
 
 
@@ -224,7 +224,7 @@ function checkSelectionStatus() {
 	if (didComplete) {
 		// Clear the selection group and deselect all SVG elements
 		selectionGroups[tool].clear();
-		deselectAll();
+		removeSelectedClass();
 
 		if (selectionGroups[tool].verticesFirst) {
 			setSelectionMode(selectionModes.VERTEX);
@@ -268,6 +268,7 @@ let callbackCreaseDoubleClicked = function() {
 // Vertex callback functions
 let callbackVertexClicked = function() {
 
+	this.addClass('vertex-selected');
 	let position = new Vec2(this.getBBox().cx, this.getBBox().cy);
 
 	selectionGroups[tool].maybeRecordVertex(position);
@@ -325,7 +326,7 @@ function addCrease(a, b) {
 
 	drawCrease(edgeIndex)
 
-	return crease;
+	return edgeIndex;
 }
 
 /**
@@ -427,6 +428,17 @@ function constructGrid() {
 	const gridSizeY = h / 2;
 	const paperCenterX = gridSizeX;
 	const paperCenterY = gridSizeY; 
+	const paperPadX = gridSizeX / (gridDivsX - 1);
+	const paperPadY = gridSizeY / (gridDivsY - 1);
+
+	let svgBackgroud = s.rect(0, 0, w, h);
+	svgBackgroud.addClass('background');
+
+	let svgPaper = s.rect(paperCenterX - gridSizeX * 0.5 - paperPadX * 0.5,
+						  paperCenterY - gridSizeY * 0.5 - paperPadY * 0.5,
+						  gridSizeX + paperPadX,
+						  gridSizeY + paperPadY);
+	svgPaper.addClass('paper');
 
 	for (var y = 0; y < gridDivsY; y++) {
 		for (var x = 0; x < gridDivsX; x++) {
@@ -439,32 +451,47 @@ function constructGrid() {
 	}
 }
 
-// Add event listener to grid divisions slider
-document.getElementById('divisions').onchange = function() {
-    gridDivsX = this.value;
-    gridDivsY = this.value;
-    constructGrid();
-};
 
-// Add event listeners to tool radio buttons
-Array.from(document.getElementsByClassName('tools')).forEach(el => {
-	el.onclick = function() {
-		deselectAll();
-		tool = this.value;
+// Add event listener to grid divisions slider
+// document.getElementById('divisions').onchange = function() {
+//     gridDivsX = this.value;
+//     gridDivsY = this.value;
+//     constructGrid();
+// };
+
+
+//Snap.load('./assets/tool_icon_select.svg', onSVGLoaded);
+
+function onSVGLoaded( data ){ 
+    s.append( data );
+}
+
+// Add event listeners to tool icons
+const toolIcons = Array.from(document.getElementsByClassName('tool-icon'));
+
+function deselectAllIcons() {
+	toolIcons.forEach(element => element.classList.remove('selected'));
+}
+
+toolIcons.forEach(element => {
+
+	if (element.getAttribute('op') === tool) {
+		element.classList.add('selected');
+	}
+
+	element.addEventListener('click', function() {
+
+		deselectAllIcons();
+		this.classList.add('selected');
+		tool = this.getAttribute('op');
 		console.log(`Switched to tool: ${tool}`)
 
 		selectionGroups[tool].clear();
 		setSelectionMode(selectionGroups[tool].verticesFirst ? selectionModes.VERTEX : selectionModes.CREASE);
-	};
+	
+	});
 });
 
-// Add event listeners to selection mode radio buttons
-Array.from(document.getElementsByClassName('selection-modes')).forEach(el => {
-	el.onclick = function() {
-		deselectAll();
-		select = this.value;
-	};
-});
 
 // Start the application
 constructGrid();

@@ -400,27 +400,27 @@ var selectionModes = {
 
 var select = selectionModes.VERTEX;
 var tool = tools.LINE_SEGMENT;
-var gridDivsX = 10;
-var gridDivsY = 10;
-var gridPointDrawRadius = 6;
+var gridDivsX = 11;
+var gridDivsY = 11;
+var gridPointDrawRadius = 8;
 var vertexDrawRadius = 6;
 var creaseStrokeWidth = 4;
 
-function deselectAllVertices() {
+function removeSelectedClassFromVertices() {
   s.selectAll('.vertex-selected').forEach(function (el) {
     return el.removeClass('vertex-selected');
   });
 }
 
-function deselectAllCreases() {
+function removeSelectedClassFromCreases() {
   s.selectAll('.crease-selected').forEach(function (el) {
     return el.removeClass('crease-selected');
   });
 }
 
-function deselectAll() {
-  deselectAllVertices();
-  deselectAllCreases();
+function removeSelectedClass() {
+  removeSelectedClassFromVertices();
+  removeSelectedClassFromCreases();
 } // ADD EVENT LISTENERS TO MAIN SVG
 // RECORD MOUSE CLICK POSITIONS AND USE THE X,Y,X,Y VERSIONS OF THE FUNCTIONS
 // TO ADD CREASES AND VERTICES
@@ -516,7 +516,7 @@ function checkSelectionStatus() {
   if (didComplete) {
     // Clear the selection group and deselect all SVG elements
     selectionGroups[tool].clear();
-    deselectAll();
+    removeSelectedClass();
 
     if (selectionGroups[tool].verticesFirst) {
       setSelectionMode(selectionModes.VERTEX);
@@ -557,6 +557,7 @@ var callbackCreaseDoubleClicked = function callbackCreaseDoubleClicked() {
 
 
 var callbackVertexClicked = function callbackVertexClicked() {
+  this.addClass('vertex-selected');
   var position = new _math.Vec2(this.getBBox().cx, this.getBBox().cy);
   selectionGroups[tool].maybeRecordVertex(position);
   checkSelectionStatus();
@@ -609,7 +610,7 @@ function addCrease(a, b) {
   var index1 = addVertex(b);
   var edgeIndex = g.addEdge(index0, index1);
   drawCrease(edgeIndex);
-  return crease;
+  return edgeIndex;
 }
 /**
  * Draws a virtual crease (i.e. an SVG line segment)
@@ -692,6 +693,12 @@ function constructGrid() {
   var gridSizeY = h / 2;
   var paperCenterX = gridSizeX;
   var paperCenterY = gridSizeY;
+  var paperPadX = gridSizeX / (gridDivsX - 1);
+  var paperPadY = gridSizeY / (gridDivsY - 1);
+  var svgBackgroud = s.rect(0, 0, w, h);
+  svgBackgroud.addClass('background');
+  var svgPaper = s.rect(paperCenterX - gridSizeX * 0.5 - paperPadX * 0.5, paperCenterY - gridSizeY * 0.5 - paperPadY * 0.5, gridSizeX + paperPadX, gridSizeY + paperPadY);
+  svgPaper.addClass('paper');
 
   for (var y = 0; y < gridDivsY; y++) {
     for (var x = 0; x < gridDivsX; x++) {
@@ -703,30 +710,40 @@ function constructGrid() {
     }
   }
 } // Add event listener to grid divisions slider
+// document.getElementById('divisions').onchange = function() {
+//     gridDivsX = this.value;
+//     gridDivsY = this.value;
+//     constructGrid();
+// };
+//Snap.load('./assets/tool_icon_select.svg', onSVGLoaded);
 
 
-document.getElementById('divisions').onchange = function () {
-  gridDivsX = this.value;
-  gridDivsY = this.value;
-  constructGrid();
-}; // Add event listeners to tool radio buttons
+function onSVGLoaded(data) {
+  s.append(data);
+} // Add event listeners to tool icons
 
 
-Array.from(document.getElementsByClassName('tools')).forEach(function (el) {
-  el.onclick = function () {
-    deselectAll();
-    tool = this.value;
+var toolIcons = Array.from(document.getElementsByClassName('tool-icon'));
+
+function deselectAllIcons() {
+  toolIcons.forEach(function (element) {
+    return element.classList.remove('selected');
+  });
+}
+
+toolIcons.forEach(function (element) {
+  if (element.getAttribute('op') === tool) {
+    element.classList.add('selected');
+  }
+
+  element.addEventListener('click', function () {
+    deselectAllIcons();
+    this.classList.add('selected');
+    tool = this.getAttribute('op');
     console.log("Switched to tool: ".concat(tool));
     selectionGroups[tool].clear();
     setSelectionMode(selectionGroups[tool].verticesFirst ? selectionModes.VERTEX : selectionModes.CREASE);
-  };
-}); // Add event listeners to selection mode radio buttons
-
-Array.from(document.getElementsByClassName('selection-modes')).forEach(function (el) {
-  el.onclick = function () {
-    deselectAll();
-    select = this.value;
-  };
+  });
 }); // Start the application
 
 constructGrid();
