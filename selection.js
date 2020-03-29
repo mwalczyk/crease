@@ -1,12 +1,12 @@
 export class SelectionGroup {
-	constructor(classes, count) {
-		this.classes = classes;
+	constructor(className, count) {
+		this.className = className;
 		this.count = count;
 		this.refs = [];
 	}
 
 	isApplicable(element) {
-		return this.classes.some(c => element.node.classList.contains(c));
+		return element.node.classList.contains(this.className);
 	}
 
 	maybeAdd(element) {
@@ -33,11 +33,13 @@ export class OrderedSelection {
 	}
 
 	maybeAdd(element) {
-		const res = this.currentGroup.maybeAdd(element);
-		if (!res) {
+		const didAdd = this.currentGroup.maybeAdd(element);
+		let didAdvance = false;
+		if (this.currentGroup.isComplete) {
 			this.advance();
+			didAdvance = true;
 		}
-		return res;
+		return [didAdd, didAdvance];
 	}
 	
 	advance() {

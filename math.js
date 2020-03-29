@@ -1,8 +1,3 @@
-// References: 
-// https://github.com/hiddentao/linear-algebra
-// https://github.com/uber-web/math.gl
-// https://github.com/reinvanoyen/tnt-vec2/blob/master/src/index.js
-
 export class Vec2 {
 
 	constructor(x, y) {

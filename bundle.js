@@ -304,7 +304,7 @@ var _graph = require("./graph.js");
 
 var _math = require("./math.js");
 
-var _selection_group = require("./selection_group.js");
+var _selection = require("./selection.js");
 
 var _geometry = require("./geometry.js");
 
@@ -395,14 +395,6 @@ var creaseAssignment = {
   VALLEY: 'valley',
   BORDER: 'border'
 };
-var vertexType = {
-  GRID: 'grid',
-  ACTIVE: 'active'
-};
-var creaseType = {
-  GRID: 'grid',
-  ACTIVE: 'active'
-};
 var tools = {
   LINE_SEGMENT: 'line-segment',
   LINE: 'line',
@@ -410,139 +402,107 @@ var tools = {
   PERPENDICULAR: 'perpendicular'
 };
 var selectionGroups = {
-  'line-segment': new _selection_group.SelectionGroup(2, 0),
-  'line': new _selection_group.SelectionGroup(2, 0),
-  'incenter': new _selection_group.SelectionGroup(3, 0),
-  'perpendicular': new _selection_group.SelectionGroup(1, 1)
-};
-var selectionModes = {
-  VERTEX: 'vertex',
-  CREASE: 'crease'
+  'line-segment': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 2)]),
+  'line': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 2)]),
+  'incenter': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 3)]),
+  'perpendicular': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 1), new _selection.SelectionGroup('crease', 1)])
 }; // Configuration for application start
 
-var select = selectionModes.VERTEX;
 var tool = tools.LINE_SEGMENT;
 var gridDivsX = 11;
 var gridDivsY = 11;
-var gridPointDrawRadius = 8;
+var gridPointDrawRadius = 4;
 var vertexDrawRadius = 6;
 var creaseStrokeWidth = 4;
-
-function removeSelectedClassFromVertices() {
-  s.selectAll('.vertex-selected').forEach(function (el) {
-    return el.removeClass('vertex-selected');
-  });
-}
-
-function removeSelectedClassFromCreases() {
-  s.selectAll('.crease-selected').forEach(function (el) {
-    return el.removeClass('crease-selected');
-  });
-}
-
-function removeSelectedClass() {
-  removeSelectedClassFromVertices();
-  removeSelectedClassFromCreases();
-} // ADD EVENT LISTENERS TO MAIN SVG
-// RECORD MOUSE CLICK POSITIONS AND USE THE X,Y,X,Y VERSIONS OF THE FUNCTIONS
-// TO ADD CREASES AND VERTICES
-// OR MAYBE, CHANGE THE CALLBACKS BELOW SO THAT EACH TIME AN ELEMENT IS CLICKED,
-// IT SIMPLY ADDS ITS INTERNAL ID TO THE SELECTION GROUP, AND CALLS A "CHECK-SELECTION-STATUS"
-// FUNCTION THAT DOES ALL OF THE OPERATIONS/SWITCHING 
-
 /**
  * Applies a cyclic animation to a particular attribute of an SVG DOM element
  * @param {DOM element} element - the DOM SVG element to animate
- * @param {string} name - the name of the attribute to animate	
- * @param {number} to - the target value of the named attribute
- * @param {number} from - the starting value of the named attribute
+ * @param {string} attrName - the name of the attribute to animate	
+ * @param {number} percent - the percent increase (or decrease) of the specified attribute
  * @param {number} timeTo - the duration of the target animation 
  * @param {number} timeFrom - the duration of the return animation
  */
 
-
-function animateCycle(element, name, to, from) {
-  var timeTo = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 200;
-  var timeFrom = arguments.length > 5 && arguments[5] !== undefined ? arguments[5] : 50;
+function animateCycle(element, attrName, percent) {
+  var timeTo = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 200;
+  var timeFrom = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 50;
+  var to = element.attr(attrName) * percent;
+  var from = element.attr(attrName);
   var anims = [function () {
     Snap.animate(from, to, function (val) {
-      element.attr(name, val);
+      element.attr(attrName, val);
     }, timeTo, mina.elastic, anims[1]);
   }, function () {
     Snap.animate(to, from, function (val) {
-      element.attr(name, val);
+      element.attr(attrName, val);
     }, timeFrom, mina.bounce);
   }];
   anims[0]();
 }
 /**
- * Sets the type of object that is currently selectable
- * @param {string} mode - the (class) name of DOM elements that should become selectable
- * @param {boolean} animate - whether or not the corresponding elements should animate when they become selectable
+ * Animates the group of objects that are currently selectable
  */
 
 
-function setSelectionMode(mode) {
-  var animate = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
-  console.log("Switching to selection mode: ".concat(mode));
-  select = mode;
+function animateSelectableObjects() {
+  var className = selectionGroups[tool].currentGroup.className;
+  var elements = s.selectAll('.' + className);
 
-  if (animate) {
-    switch (mode) {
-      case selectionModes.VERTEX:
-        s.selectAll('.vertex').forEach(function (el) {
-          return animateCycle(el, 'r', vertexDrawRadius * 1.2, vertexDrawRadius);
-        });
-        break;
+  switch (className) {
+    case 'vertex':
+      elements.forEach(function (el) {
+        return animateCycle(el, 'r', 1.2);
+      });
+      break;
 
-      case selectionModes.CREASE:
-        s.selectAll('.crease').forEach(function (el) {
-          return animateCycle(el, 'strokeWidth', creaseStrokeWidth * 1.2, creaseStrokeWidth);
-        });
-        break;
-    }
+    case 'crease':
+      // TODO: this isn't working for some reason?
+      elements.forEach(function (el) {
+        return animateCycle(el, 'stroke-width', 4.2);
+      });
+      break;
   }
 }
 
-function checkSelectionStatus() {
-  var didComplete = false;
+function removeSelectedClass() {
+  s.selectAll('*').forEach(function (element) {
+    return element.removeClass('selected');
+  });
+}
 
+function operate() {
   if (tool === tools.LINE_SEGMENT) {
-    if (selectionGroups[tool].hasRequiredVertices) {
-      // Add a crease between the two selected vertices
-      addCrease(selectionGroups[tool].vertices[0], selectionGroups[tool].vertices[1]);
-      didComplete = true;
-    }
+    // Add a crease between the two selected vertices
+    var vertices = selectionGroups[tool].groups[0].refs;
+    addCrease(new _math.Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy), new _math.Vec2(vertices[1].getBBox().cx, vertices[1].getBBox().cy));
   } else if (tool === tools.LINE) {} else if (tool === tools.INCENTER) {
-    if (selectionGroups[tool].hasRequiredVertices) {
-      // Create 3 new creases that join each of the 3 points to their incenter
-      var incenter = (0, _geometry.calculateTriangleIncenter)(selectionGroups[tool].vertices[0], selectionGroups[tool].vertices[1], selectionGroups[tool].vertices[2]);
-      selectionGroups[tool].vertices.forEach(function (v) {
-        return addCrease(v, incenter);
-      });
-      didComplete = true;
-    }
-  } else if (tool === tools.PERPENDICULAR) {
-    if (selectionGroups[tool].hasRequiredVertices) {
-      if (selectionGroups[tool].hasRequiredCreases) {
-        // Drop a perpendicular from the specified vertex to the specified crease
-        var perp = (0, _geometry.calculatePerpendicular)(selectionGroups[tool].creases[0][0], selectionGroups[tool].creases[0][1], selectionGroups[tool].vertices[0]);
-        addCrease(selectionGroups[tool].vertices[0], perp);
-        didComplete = true;
-      } else {
-        setSelectionMode(selectionModes.CREASE);
-      }
-    }
-  }
+    // Create 3 new creases that join each of the 3 points to their incenter
+    var _vertices = selectionGroups[tool].groups[0].refs;
+    var incenter = (0, _geometry.calculateTriangleIncenter)(new _math.Vec2(_vertices[0].getBBox().cx, _vertices[0].getBBox().cy), new _math.Vec2(_vertices[1].getBBox().cx, _vertices[1].getBBox().cy), new _math.Vec2(_vertices[2].getBBox().cx, _vertices[2].getBBox().cy));
 
-  if (didComplete) {
-    // Clear the selection group and deselect all SVG elements
+    _vertices.forEach(function (v) {
+      return addCrease(new _math.Vec2(v.getBBox().cx, v.getBBox().cy), incenter);
+    });
+  } else if (tool === tools.PERPENDICULAR) {
+    // Drop a perpendicular from the specified vertex to the specified crease
+    var _vertices2 = selectionGroups[tool].groups[0].refs;
+    var creases = selectionGroups[tool].groups[1].refs;
+    var perp = (0, _geometry.calculatePerpendicular)(new _math.Vec2(creases[0].attr().x1, creases[0].attr().y1), new _math.Vec2(creases[0].attr().x2, creases[0].attr().y2), new _math.Vec2(_vertices2[0].getBBox().cx, _vertices2[0].getBBox().cy));
+    addCrease(new _math.Vec2(_vertices2[0].getBBox().cx, _vertices2[0].getBBox().cy), perp);
+  }
+}
+/**
+ * Checks if the selection is complete for the current tool 
+ */
+
+
+function checkSelectionStatus() {
+  if (selectionGroups[tool].isComplete) {
+    operate(); // Clear the selection group and deselect all SVG elements
+
     selectionGroups[tool].clear();
     removeSelectedClass();
-
-    if (selectionGroups[tool].verticesFirst) {
-      setSelectionMode(selectionModes.VERTEX);
-    }
+    animateSelectableObjects();
   }
 }
 
@@ -563,42 +523,40 @@ function cycleCreaseAssignmet(element) {
     // No assignment: set to border
     element.addClass(creaseAssignment.BORDER);
   }
-} // Crease callback functions
+} // Callback function used by all selectable objects
 
 
-var callbackCreaseClicked = function callbackCreaseClicked() {
-  if (select === selectionModes.CREASE) {
-    this.addClass('crease-selected');
-    var position0 = new _math.Vec2(this.attr().x1, this.attr().y1);
-    var position1 = new _math.Vec2(this.attr().x2, this.attr().y2);
-    selectionGroups[tool].maybeRecordCrease([position0, position1]);
-    checkSelectionStatus();
+var callbackClickSelectable = function callbackClickSelectable() {
+  var _selectionGroups$tool = selectionGroups[tool].maybeAdd(this),
+      _selectionGroups$tool2 = _slicedToArray(_selectionGroups$tool, 2),
+      didAdd = _selectionGroups$tool2[0],
+      didAdvance = _selectionGroups$tool2[1];
+
+  if (didAdd) {
+    this.addClass('selected');
   }
+
+  if (didAdvance) {
+    animateSelectableObjects();
+  }
+
+  checkSelectionStatus();
 };
 
 var callbackCreaseDoubleClicked = function callbackCreaseDoubleClicked() {
   cycleCreaseAssignmet(this);
-}; // Vertex callback functions
+}; // Additional vertex callback functions
 
-
-var callbackVertexClicked = function callbackVertexClicked() {
-  if (select === selectionModes.VERTEX) {
-    this.addClass('vertex-selected');
-    var position = new _math.Vec2(this.getBBox().cx, this.getBBox().cy);
-    selectionGroups[tool].maybeRecordVertex(position);
-    checkSelectionStatus();
-  }
-};
 
 var callbackVertexHoverEnter = function callbackVertexHoverEnter() {
   this.attr({
-    'r': vertexDrawRadius * 2
+    'r': vertexDrawRadius * 1.25
   });
 };
 
 var callbackVertexHoverExit = function callbackVertexHoverExit() {
   this.attr({
-    'r': vertexDrawRadius * 1
+    'r': vertexDrawRadius * 1.00
   });
 };
 
@@ -646,6 +604,7 @@ function addCrease(a, b) {
 
 
 function drawCrease(index) {
+  // Remove any duplicates
   if (removeElementWithIndex('.crease', index)) {
     console.log("Crease SVG with stored index ".concat(index, " was removed and re-added"));
   } else {
@@ -655,14 +614,14 @@ function drawCrease(index) {
   var svg = s.line(g.nodes[g.edges[index][0]].x, g.nodes[g.edges[index][0]].y, g.nodes[g.edges[index][1]].x, g.nodes[g.edges[index][1]].y);
   svg.addClass('crease');
   svg.data('index', index);
-  svg.click(callbackCreaseClicked);
+  svg.click(callbackClickSelectable);
   svg.dblclick(callbackCreaseDoubleClicked);
   svg.append(Snap.parse("<title>Edge: ".concat(index, "</title>"))); // TODO: does Snap support z-ordering at all?
 
   var existingSVGvertices = s.selectAll('.vertex');
 
   if (existingSVGvertices.length > 0) {
-    svg.insertBefore(existingSVGvertices[0]);
+    svg.insertAfter(existingSVGvertices[0]);
   }
 }
 /**
@@ -672,6 +631,7 @@ function drawCrease(index) {
 
 
 function addVertex(p) {
+  // Try to add a new node to the graph
   var _g$addNode = g.addNode(p),
       _g$addNode2 = _slicedToArray(_g$addNode, 2),
       nodeIndex = _g$addNode2[0],
@@ -693,6 +653,7 @@ function addVertex(p) {
 
 
 function drawVertex(index) {
+  // Remove any duplicates
   if (removeElementWithIndex('.vertex', index)) {
     console.log("Vertex SVG with stored index ".concat(index, " was removed and re-added"));
   } else {
@@ -702,20 +663,18 @@ function drawVertex(index) {
   var svg = s.circle(g.nodes[index].x, g.nodes[index].y, vertexDrawRadius);
   svg.addClass('vertex');
   svg.data('index', index);
-  svg.click(callbackVertexClicked);
+  svg.click(callbackClickSelectable);
   svg.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
   svg.append(Snap.parse("<title>Vertex: ".concat(index, "</title>")));
 }
 
 function drawGridPoint(x, y) {
-  var w = gridPointDrawRadius;
-  var h = gridPointDrawRadius;
-  var svg = s.rect(x - w * 0.5, y - h * 0.5, w, h);
-  svg.addClass('grid-point');
-  svg.click(callbackVertexClicked);
+  var svg = s.circle(x, y, gridPointDrawRadius);
+  svg.addClass('vertex');
+  svg.click(callbackClickSelectable);
 }
 
-function constructGrid() {
+function drawGrid() {
   var gridSizeX = w / 2;
   var gridSizeY = h / 2;
   var paperCenterX = gridSizeX;
@@ -736,13 +695,7 @@ function constructGrid() {
       drawGridPoint(posX, posY);
     }
   }
-} // Add event listener to grid divisions slider
-// document.getElementById('divisions').onchange = function() {
-//     gridDivsX = this.value;
-//     gridDivsY = this.value;
-//     constructGrid();
-// };
-// Add event listeners to tool icons
+} // Add event listeners to tool icons
 
 
 var toolIcons = Array.from(document.getElementsByClassName('tool-icon'));
@@ -754,17 +707,20 @@ function deselectAllIcons() {
 }
 
 toolIcons.forEach(function (element) {
+  // Select the initial tool icon
   if (element.getAttribute('op') === tool) {
     element.classList.add('selected');
   }
 
   element.addEventListener('click', function () {
+    // Deselect the previous tool icon
     deselectAllIcons();
-    this.classList.add('selected');
+    this.classList.add('selected'); // Switch tools
+
     tool = this.getAttribute('op');
     console.log("Switched to tool: ".concat(tool));
     selectionGroups[tool].clear();
-    setSelectionMode(selectionGroups[tool].verticesFirst ? selectionModes.VERTEX : selectionModes.CREASE);
+    animateSelectableObjects();
   });
 });
 document.addEventListener('keydown', function (event) {
@@ -772,17 +728,16 @@ document.addEventListener('keydown', function (event) {
     console.log('Nodes:', g.nodes);
     console.log('Edges:', g.edges);
   } else if (event.keyCode === 71) {
-    s.selectAll('.grid-point').forEach(function (element) {
+    s.selectAll('.vertex').forEach(function (element) {
       var showOrHide = showOrHide === undefined ? element.attr('display') === 'none' : !!showOrHide;
       element.attr('display', showOrHide ? '' : 'none');
     });
   }
 }); // Start the application
 
-constructGrid();
-console.log(s.getBBox());
+drawGrid();
 
-},{"./geometry.js":1,"./graph.js":2,"./math.js":4,"./selection_group.js":7,"snapsvg":6}],4:[function(require,module,exports){
+},{"./geometry.js":1,"./graph.js":2,"./math.js":4,"./selection.js":7,"snapsvg":6}],4:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -796,10 +751,6 @@ function _defineProperties(target, props) { for (var i = 0; i < props.length; i+
 
 function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
 
-// References: 
-// https://github.com/hiddentao/linear-algebra
-// https://github.com/uber-web/math.gl
-// https://github.com/reinvanoyen/tnt-vec2/blob/master/src/index.js
 var Vec2 = /*#__PURE__*/function () {
   function Vec2(x, y) {
     _classCallCheck(this, Vec2);
@@ -9979,18 +9930,23 @@ function _defineProperties(target, props) { for (var i = 0; i < props.length; i+
 function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
 
 var SelectionGroup = /*#__PURE__*/function () {
-  function SelectionGroup(selector, count) {
+  function SelectionGroup(className, count) {
     _classCallCheck(this, SelectionGroup);
 
-    this.selector = selector;
+    this.className = className;
     this.count = count;
     this.refs = [];
   }
 
   _createClass(SelectionGroup, [{
+    key: "isApplicable",
+    value: function isApplicable(element) {
+      return element.node.classList.contains(this.className);
+    }
+  }, {
     key: "maybeAdd",
     value: function maybeAdd(element) {
-      if (element.hasClass(this.selector) && this.refs.length < this.count) {
+      if (this.isApplicable(element) && this.refs.length < this.count) {
         this.refs.push(element);
         return true;
       }
@@ -10027,13 +9983,15 @@ var OrderedSelection = /*#__PURE__*/function () {
   _createClass(OrderedSelection, [{
     key: "maybeAdd",
     value: function maybeAdd(element) {
-      var res = this.currentGroup.maybeAdd(element);
+      var didAdd = this.currentGroup.maybeAdd(element);
+      var didAdvance = false;
 
-      if (!res) {
+      if (this.currentGroup.isComplete) {
         this.advance();
+        didAdvance = true;
       }
 
-      return res;
+      return [didAdd, didAdvance];
     }
   }, {
     key: "advance",
@@ -10046,6 +10004,7 @@ var OrderedSelection = /*#__PURE__*/function () {
       this.groups.forEach(function (g) {
         return g.clear();
       });
+      this.currentIndex = 0;
     }
   }, {
     key: "currentGroup",
@@ -10055,61 +10014,12 @@ var OrderedSelection = /*#__PURE__*/function () {
   }, {
     key: "isComplete",
     get: function get() {
-      return this.currentIndex === this.groups.length - 1 && this.groups[this.groups.length - 1].isComplete();
+      return this.currentIndex === this.groups.length - 1 && this.groups[this.groups.length - 1].isComplete;
     }
   }]);
 
   return OrderedSelection;
-}(); // export class SelectionGroup {
-// 	constructor(expectedVertices, expectedCreases, verticesFirst=true, help='Message') {
-// 		this.vertices = [];
-// 		this.creases = [];
-// 		this.expectedVertices = expectedVertices;
-// 		this.expectedCreases = expectedCreases;
-// 		this.verticesFirst = verticesFirst;
-// 		this.help = help;
-// 	}
-// 	maybeRecordVertex(v) {
-// 		if (this.vertices.length < this.expectedVertices) {
-// 			this.vertices.push(v);
-// 			return true;
-// 		} 
-// 		return false;
-// 	}
-// 	maybeRecordCrease(c) {
-// 		if (this.creases.length < this.expectedCreases) {
-// 			this.creases.push(c);
-// 			return true;
-// 		} 
-// 		return false;
-// 	}
-// 	get mostRecentVertex() {
-// 		return this.vertices[this.vertices.length - 1];
-// 	}
-// 	get mostRecentCrease() {
-// 		return this.creases[this.creases.length - 1];
-// 	}
-// 	get vertexCount() {
-// 		return this.vertices.length;
-// 	}
-// 	get creaseCount() {
-// 		return this.creases.length;
-// 	}
-// 	get hasRequiredVertices() {
-// 		return this.vertexCount === this.expectedVertices;
-// 	}
-// 	get hasRequiredCreases() {
-// 		return this.creaseCount == this.expectedCreases;
-// 	}
-// 	get isComplete() {
-// 		return this.hasRequiredVertices && this.hasRequiredCreases;
-// 	}
-// 	clear() {
-// 		this.vertices = [];
-// 		this.creases = [];
-// 	}
-// }
-
+}();
 
 exports.OrderedSelection = OrderedSelection;
 

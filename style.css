@@ -53,11 +53,11 @@ svg .vertex:hover {
 	fill: hsl(221, 12%, 50%);
 }
 
-svg .vertex-selected {
+svg .vertex.selected {
 	fill: hsl(26, 100%, 70%);
 }
 
-svg .vertex-selected:hover {
+svg .vertex.selected:hover {
 	fill: hsl(26, 100%, 60%);
 }
 
@@ -89,11 +89,17 @@ svg .crease.mountain:hover {
 	stroke: stroke: hsl(359, 36%, 35%);
 }
 
-svg .crease-selected {
+svg .crease.selected {
+	stroke: hsl(48, 100%, 50%);
+}
+
+
+/*svg .crease-selected {
 	stroke: hsl(48, 100%, 50%);
 }
 
 svg .crease-selected:hover {
 	stroke: hsl(48, 100%, 40%);
-}
+}*/
+
 
