@@ -17,72 +17,49 @@ export class PlanarGraph {
 		return this.edges.length;
 	}
 
+	/**
+	 * @param {number} index - a node index
+	 * @return {Vec2} - the node at the specified index
+	 */
 	nodeAt(index) {
 		return this.nodes[index];
 	}
 
+	/**
+	 * @param {number} index - an edge index
+	 * @return {number[]} - the edge at the specified index
+	 */
 	edgeAt(index) {
 		return this.edges[index];
 	}
 
-	// Potentially adds a new node to the graph, where the node is represented by a 2-element
-	// vector (with xy-coordinates)
-	//
-	// Returns a list with two entries:
-	// 1) The index of the newly added node or the index of an existing node if the specified
-	//    node was the same (or very close to) an existing node
-	// 2) A list containing the indices of all of the edges that changed as a result of adding
-	//    the new node
-	addNode(node, epsilon=0.001) {
+	/**
+	 * Attempts to add a new node to the graph at coordinates <node.x, node.y>
+	 * @param {Vec2} node - the position of the new node
+	 * @param {number} eps - an epsilon (used for numerical stability)
+	 * @return {[number, number[]]} - the index of the newly added node (or the index of an existing
+	 * 		node if the specified node was close to an existing node) and a list containing the indices
+	 *		of all of the edges that changed as a result of adding the new node
+	 */
+	addNode(node, eps=0.001) {
 		// Check if the vertex is the same as an existing vertex (within epsilon)
-		const [indexOfClosest, distanceToClosest] = findClosestTo(node, this.nodes);
+		const [index, distance] = findClosestTo(node, this.nodes);
 
-		// If the found distance is less than the specified threshold, the specified
-		// node is considered a "duplicate," so we return the index of the existing
-		// node
-		//
-		// Otherwise, this is truly a new node, so we add it to the list of nodes
-		// and return its index
-		if (distanceToClosest < epsilon) {
-			console.log(`Added node is very close to neighbor ${indexOfClosest} - returning existing index`)
-			return [indexOfClosest, []];
+		if (distance < eps) {
+			// If the found distance is less than the specified threshold, the specified
+			// node is considered a "duplicate," so we return the index of the existing
+			// node
+			console.log(`Attempting to add node that is very close node at index ${index} - returning the existing index instead`);
+			return [index, []];
 		} else {
-			this.nodes.push(node);
-			const modifiedEdges = this.splitEdgesAlong(this.nodeCount - 1);	
-
 			// The new node is added at the end of the list, so we return that index along 
 			// with any edges that may have changed / been created
-			return [this.nodeCount - 1, modifiedEdges];
+			this.nodes.push(node);
+			const changedEdges = this.splitEdgesAlong(this.nodeCount - 1);	
+			
+			return [this.nodeCount - 1, changedEdges];
 		}
 	}
-
-	// Splits any edges that contain the specified node in their interiors - we do not need
-	// to split an edge when the specified node is one of its endpoints
-	splitEdgesAlong(nodeIndex) {
-		let changedEdges = [];
-
-		this.edges.forEach((edge, index) => {
-			const onEdge = isOnLineSegment(this.nodes[edge[0]],
-										   this.nodes[edge[1]],
-										   this.nodes[nodeIndex]);
-			if (onEdge) {
-				// Create the two new edges
-				const childEdgeA = [this.edges[index][0], nodeIndex];
-				const childEdgeB = [this.edges[index][1], nodeIndex]; 
-
-				// Put one of them in the place of the old, un-split edge and the other 
-				// at the end of the array
-				this.edges[index] = childEdgeA;
-				this.edges.push(childEdgeB);
-	
-				changedEdges.push(index, this.edgeCount - 1);
-			}
-		});
-
-		return changedEdges;
-	}
-
-
 
 	// Adds an edge between the nodes at indices `a` and `b` and splits any intersecting
 	// edges, adding new nodes and edges as necessary to maintain planarity
@@ -113,6 +90,35 @@ export class PlanarGraph {
 		// });
 
 		return this.edgeCount - 1;
+	}
+
+	/**
+	 * Splits any edges that contain the specified node in their interiors
+	 * @param {number} index - the position of the new node
+	 * @return {number[]} - the indices of any newly created (or modified) edges
+	 */
+	splitEdgesAlong(nodeIndex) {
+		let changedEdges = [];
+
+		this.edges.forEach((edge, edgeIndex) => {
+			const onEdge = isOnLineSegment(this.nodes[edge[0]],
+										   this.nodes[edge[1]],
+										   this.nodes[nodeIndex]);
+			if (onEdge) {
+				// Create the two new edges
+				const childEdgeA = [edge[0], nodeIndex];
+				const childEdgeB = [edge[1], nodeIndex]; 
+
+				// Put one of them in the place of the old, un-split edge and the other 
+				// at the end of the array
+				this.edges[edgeIndex] = childEdgeA;
+				this.edges.push(childEdgeB);
+	
+				changedEdges.push(edgeIndex, this.edgeCount - 1);
+			}
+		});
+
+		return changedEdges;
 	}
 
 	deleteNode(index) {

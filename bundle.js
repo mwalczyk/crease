@@ -155,75 +155,57 @@ var PlanarGraph = /*#__PURE__*/function () {
 
   _createClass(PlanarGraph, [{
     key: "nodeAt",
+
+    /**
+     * @param {number} index - a node index
+     * @return {Vec2} - the node at the specified index
+     */
     value: function nodeAt(index) {
       return this.nodes[index];
     }
+    /**
+     * @param {number} index - an edge index
+     * @return {number[]} - the edge at the specified index
+     */
+
   }, {
     key: "edgeAt",
     value: function edgeAt(index) {
       return this.edges[index];
-    } // Potentially adds a new node to the graph, where the node is represented by a 2-element
-    // vector (with xy-coordinates)
-    //
-    // Returns a list with two entries:
-    // 1) The index of the newly added node or the index of an existing node if the specified
-    //    node was the same (or very close to) an existing node
-    // 2) A list containing the indices of all of the edges that changed as a result of adding
-    //    the new node
+    }
+    /**
+     * Attempts to add a new node to the graph at coordinates <node.x, node.y>
+     * @param {Vec2} node - the position of the new node
+     * @param {number} eps - an epsilon (used for numerical stability)
+     * @return {[number, number[]]} - the index of the newly added node (or the index of an existing
+     * 		node if the specified node was close to an existing node) and a list containing the indices
+     *		of all of the edges that changed as a result of adding the new node
+     */
 
   }, {
     key: "addNode",
     value: function addNode(node) {
-      var epsilon = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0.001;
+      var eps = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0.001;
 
       // Check if the vertex is the same as an existing vertex (within epsilon)
       var _findClosestTo = (0, _geometry.findClosestTo)(node, this.nodes),
           _findClosestTo2 = _slicedToArray(_findClosestTo, 2),
-          indexOfClosest = _findClosestTo2[0],
-          distanceToClosest = _findClosestTo2[1]; // If the found distance is less than the specified threshold, the specified
-      // node is considered a "duplicate," so we return the index of the existing
-      // node
-      //
-      // Otherwise, this is truly a new node, so we add it to the list of nodes
-      // and return its index
+          index = _findClosestTo2[0],
+          distance = _findClosestTo2[1];
 
-
-      if (distanceToClosest < epsilon) {
-        console.log("Added node is very close to neighbor ".concat(indexOfClosest, " - returning existing index"));
-        return [indexOfClosest, []];
+      if (distance < eps) {
+        // If the found distance is less than the specified threshold, the specified
+        // node is considered a "duplicate," so we return the index of the existing
+        // node
+        console.log("Attempting to add node that is very close node at index ".concat(index, " - returning the existing index instead"));
+        return [index, []];
       } else {
-        this.nodes.push(node);
-        var modifiedEdges = this.splitEdgesAlong(this.nodeCount - 1); // The new node is added at the end of the list, so we return that index along 
+        // The new node is added at the end of the list, so we return that index along 
         // with any edges that may have changed / been created
-
-        return [this.nodeCount - 1, modifiedEdges];
+        this.nodes.push(node);
+        var changedEdges = this.splitEdgesAlong(this.nodeCount - 1);
+        return [this.nodeCount - 1, changedEdges];
       }
-    } // Splits any edges that contain the specified node in their interiors - we do not need
-    // to split an edge when the specified node is one of its endpoints
-
-  }, {
-    key: "splitEdgesAlong",
-    value: function splitEdgesAlong(nodeIndex) {
-      var _this = this;
-
-      var changedEdges = [];
-      this.edges.forEach(function (edge, index) {
-        var onEdge = (0, _geometry.isOnLineSegment)(_this.nodes[edge[0]], _this.nodes[edge[1]], _this.nodes[nodeIndex]);
-
-        if (onEdge) {
-          // Create the two new edges
-          var childEdgeA = [_this.edges[index][0], nodeIndex];
-          var childEdgeB = [_this.edges[index][1], nodeIndex]; // Put one of them in the place of the old, un-split edge and the other 
-          // at the end of the array
-
-          _this.edges[index] = childEdgeA;
-
-          _this.edges.push(childEdgeB);
-
-          changedEdges.push(index, _this.edgeCount - 1);
-        }
-      });
-      return changedEdges;
     } // Adds an edge between the nodes at indices `a` and `b` and splits any intersecting
     // edges, adding new nodes and edges as necessary to maintain planarity
 
@@ -249,6 +231,36 @@ var PlanarGraph = /*#__PURE__*/function () {
       // });
 
       return this.edgeCount - 1;
+    }
+    /**
+     * Splits any edges that contain the specified node in their interiors
+     * @param {number} index - the position of the new node
+     * @return {number[]} - the indices of any newly created (or modified) edges
+     */
+
+  }, {
+    key: "splitEdgesAlong",
+    value: function splitEdgesAlong(nodeIndex) {
+      var _this = this;
+
+      var changedEdges = [];
+      this.edges.forEach(function (edge, edgeIndex) {
+        var onEdge = (0, _geometry.isOnLineSegment)(_this.nodes[edge[0]], _this.nodes[edge[1]], _this.nodes[nodeIndex]);
+
+        if (onEdge) {
+          // Create the two new edges
+          var childEdgeA = [edge[0], nodeIndex];
+          var childEdgeB = [edge[1], nodeIndex]; // Put one of them in the place of the old, un-split edge and the other 
+          // at the end of the array
+
+          _this.edges[edgeIndex] = childEdgeA;
+
+          _this.edges.push(childEdgeB);
+
+          changedEdges.push(edgeIndex, _this.edgeCount - 1);
+        }
+      });
+      return changedEdges;
     }
   }, {
     key: "deleteNode",
@@ -730,12 +742,7 @@ function constructGrid() {
 //     gridDivsY = this.value;
 //     constructGrid();
 // };
-//Snap.load('./assets/tool_icon_select.svg', onSVGLoaded);
-
-
-function onSVGLoaded(data) {
-  s.append(data);
-} // Add event listeners to tool icons
+// Add event listeners to tool icons
 
 
 var toolIcons = Array.from(document.getElementsByClassName('tool-icon'));
@@ -773,6 +780,7 @@ document.addEventListener('keydown', function (event) {
 }); // Start the application
 
 constructGrid();
+console.log(s.getBBox());
 
 },{"./geometry.js":1,"./graph.js":2,"./math.js":4,"./selection_group.js":7,"snapsvg":6}],4:[function(require,module,exports){
 "use strict";
@@ -9962,7 +9970,7 @@ return Snap;
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.SelectionGroup = void 0;
+exports.OrderedSelection = exports.SelectionGroup = void 0;
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -9971,35 +9979,19 @@ function _defineProperties(target, props) { for (var i = 0; i < props.length; i+
 function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
 
 var SelectionGroup = /*#__PURE__*/function () {
-  function SelectionGroup(expectedVertices, expectedCreases) {
-    var verticesFirst = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
-    var help = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 'Message';
-
+  function SelectionGroup(selector, count) {
     _classCallCheck(this, SelectionGroup);
 
-    this.vertices = [];
-    this.creases = [];
-    this.expectedVertices = expectedVertices;
-    this.expectedCreases = expectedCreases;
-    this.verticesFirst = verticesFirst;
-    this.help = help;
+    this.selector = selector;
+    this.count = count;
+    this.refs = [];
   }
 
   _createClass(SelectionGroup, [{
-    key: "maybeRecordVertex",
-    value: function maybeRecordVertex(v) {
-      if (this.vertices.length < this.expectedVertices) {
-        this.vertices.push(v);
-        return true;
-      }
-
-      return false;
-    }
-  }, {
-    key: "maybeRecordCrease",
-    value: function maybeRecordCrease(c) {
-      if (this.creases.length < this.expectedCreases) {
-        this.creases.push(c);
+    key: "maybeAdd",
+    value: function maybeAdd(element) {
+      if (element.hasClass(this.selector) && this.refs.length < this.count) {
+        this.refs.push(element);
         return true;
       }
 
@@ -10008,43 +10000,12 @@ var SelectionGroup = /*#__PURE__*/function () {
   }, {
     key: "clear",
     value: function clear() {
-      this.vertices = [];
-      this.creases = [];
-    }
-  }, {
-    key: "mostRecentVertex",
-    get: function get() {
-      return this.vertices[this.vertices.length - 1];
-    }
-  }, {
-    key: "mostRecentCrease",
-    get: function get() {
-      return this.creases[this.creases.length - 1];
-    }
-  }, {
-    key: "vertexCount",
-    get: function get() {
-      return this.vertices.length;
-    }
-  }, {
-    key: "creaseCount",
-    get: function get() {
-      return this.creases.length;
-    }
-  }, {
-    key: "hasRequiredVertices",
-    get: function get() {
-      return this.vertexCount === this.expectedVertices;
-    }
-  }, {
-    key: "hasRequiredCreases",
-    get: function get() {
-      return this.creaseCount == this.expectedCreases;
+      this.refs = [];
     }
   }, {
     key: "isComplete",
     get: function get() {
-      return this.hasRequiredVertices && this.hasRequiredCreases;
+      return this.refs.length === this.count;
     }
   }]);
 
@@ -10052,5 +10013,104 @@ var SelectionGroup = /*#__PURE__*/function () {
 }();
 
 exports.SelectionGroup = SelectionGroup;
+
+var OrderedSelection = /*#__PURE__*/function () {
+  function OrderedSelection(groups) {
+    var help = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+
+    _classCallCheck(this, OrderedSelection);
+
+    this.groups = groups;
+    this.currentIndex = 0;
+  }
+
+  _createClass(OrderedSelection, [{
+    key: "maybeAdd",
+    value: function maybeAdd(element) {
+      var res = this.currentGroup.maybeAdd(element);
+
+      if (!res) {
+        this.advance();
+      }
+
+      return res;
+    }
+  }, {
+    key: "advance",
+    value: function advance() {
+      this.currentIndex = Math.min(this.currentIndex + 1, this.groups.length - 1);
+    }
+  }, {
+    key: "clear",
+    value: function clear() {
+      this.groups.forEach(function (g) {
+        return g.clear();
+      });
+    }
+  }, {
+    key: "currentGroup",
+    get: function get() {
+      return this.groups[this.currentIndex];
+    }
+  }, {
+    key: "isComplete",
+    get: function get() {
+      return this.currentIndex === this.groups.length - 1 && this.groups[this.groups.length - 1].isComplete();
+    }
+  }]);
+
+  return OrderedSelection;
+}(); // export class SelectionGroup {
+// 	constructor(expectedVertices, expectedCreases, verticesFirst=true, help='Message') {
+// 		this.vertices = [];
+// 		this.creases = [];
+// 		this.expectedVertices = expectedVertices;
+// 		this.expectedCreases = expectedCreases;
+// 		this.verticesFirst = verticesFirst;
+// 		this.help = help;
+// 	}
+// 	maybeRecordVertex(v) {
+// 		if (this.vertices.length < this.expectedVertices) {
+// 			this.vertices.push(v);
+// 			return true;
+// 		} 
+// 		return false;
+// 	}
+// 	maybeRecordCrease(c) {
+// 		if (this.creases.length < this.expectedCreases) {
+// 			this.creases.push(c);
+// 			return true;
+// 		} 
+// 		return false;
+// 	}
+// 	get mostRecentVertex() {
+// 		return this.vertices[this.vertices.length - 1];
+// 	}
+// 	get mostRecentCrease() {
+// 		return this.creases[this.creases.length - 1];
+// 	}
+// 	get vertexCount() {
+// 		return this.vertices.length;
+// 	}
+// 	get creaseCount() {
+// 		return this.creases.length;
+// 	}
+// 	get hasRequiredVertices() {
+// 		return this.vertexCount === this.expectedVertices;
+// 	}
+// 	get hasRequiredCreases() {
+// 		return this.creaseCount == this.expectedCreases;
+// 	}
+// 	get isComplete() {
+// 		return this.hasRequiredVertices && this.hasRequiredCreases;
+// 	}
+// 	clear() {
+// 		this.vertices = [];
+// 		this.creases = [];
+// 	}
+// }
+
+
+exports.OrderedSelection = OrderedSelection;
 
 },{}]},{},[3]);

@@ -476,15 +476,6 @@ function constructGrid() {
 // };
 
 
-//Snap.load('./assets/tool_icon_select.svg', onSVGLoaded);
-
-
-
-
-function onSVGLoaded( data ){ 
-    s.append( data );
-}
-
 // Add event listeners to tool icons
 const toolIcons = Array.from(document.getElementsByClassName('tool-icon'));
 
@@ -527,4 +518,5 @@ document.addEventListener('keydown', function(event) {
 
 // Start the application
 constructGrid();
+console.log(s.getBBox())
 
