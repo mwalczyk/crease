@@ -1,5 +1,5 @@
-import { Vec2 } from './math.js'
 import * as geom from './geometry.js';
+import { Vec2 } from './math.js'
 
 /**
  * A class that represents an embedding of a planar graph

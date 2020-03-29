@@ -1,7 +1,12 @@
 export class SelectionGroup {
 	constructor(className, count) {
+		// The DOM class name that is required in order for an element to be selectable as part of this group
 		this.className = className;
+
+		// The number of DOM elements that are required in order to fulfill this selection group
 		this.count = count;
+
+		// References to all DOM elements collected thus far
 		this.refs = [];
 	}
 
@@ -15,6 +20,10 @@ export class SelectionGroup {
 			return true;
 		} 
 		return false;
+	}
+
+	maybePop() {
+		return this.refs.pop();
 	}
 
 	clear() {
@@ -40,6 +49,10 @@ export class OrderedSelection {
 			didAdvance = true;
 		}
 		return [didAdd, didAdvance];
+	}
+
+	maybePop() {
+		return this.currentGroup.maybePop();
 	}
 	
 	advance() {

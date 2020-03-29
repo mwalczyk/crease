@@ -27,67 +27,7 @@ function _iterableToArrayLimit(arr, i) { if (typeof Symbol === "undefined" || !(
 
 function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 
-var snapsvg = require('snapsvg'); // Displays the element
-
-
-Element.prototype.show = function () {
-  this.attr('display', '');
-}; // Hides the element
-
-
-Element.prototype.hide = function () {
-  this.attr('display', 'none');
-};
-
-Element.prototype.toggleVisibility = function () {
-  if (this.attr().display === '') {
-    this.attr('display', 'none');
-  } else {
-    this.attr('display', '');
-  }
-}; // Setting up the dev environment:
-// 
-// 1) First, in this directory run:
-//
-// 		npm init
-// 		npm install snapsvg
-//
-// 2) Then, globally run:
-//
-// 		npm install -g browserify
-// 		npm install -g watchify
-//		npm install --save-dev babelify @babel/core
-//		npm install --save-dev @babel/preset-env
-//
-// Some references:
-//
-// 		[Snap SVG Tutorials](http://svg.dabbles.info/snaptut-dragscale)
-//		[Snap SVG Cheat Sheet](https://gist.github.com/osvik/0185cb4381b35aad3d3e1f5438ca5ca4)
-//		[Guide to CSS Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/)
-//		[Using Enums in Javascript](https://www.sohamkamani.com/blog/2017/08/21/enums-in-javascript/)
-// 		[Figma Typeface](https://www.abcdinamo.com/typefaces/whyte)
-//		[CORS and WebGL Textures](https://webgl2fundamentals.org/webgl/lessons/webgl-cors-permission.html)
-//		[Toggling Visibility](http://www.alexnormand.com/blog/2014/03/09-show-hide-an-element-and-add-remove-classes-from-an-element-with-snapsvg/)
-//
-//	Math stuff:
-//
-// 		[Calculating Perpendiculars](https://stackoverflow.com/questions/1811549/perpendicular-on-a-line-from-a-given-point)
-//		[Calculating Line Segment Intersections](https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect)
-//		[Calculating Triangle Incenters](https://www.mathopenref.com/coordincenter.html)
-//
-//	Docstring inspiration:
-//
-//		[TWGL](https://github.com/greggman/twgl.js/blob/master/src/textures.js)
-//
-// To run:
-//
-// 		watchify index.js -o bundle.js
-//
-// or:
-//
-//		npm run bundle-watch
-//
-// An embedding of a planar graph, representing the crease pattern
+var snapsvg = require('snapsvg'); // An embedding of a planar graph, representing the crease pattern
 
 
 var g = new _graph.PlanarGraph(); // Create the `Element` object that will house all of the other SVGs
@@ -96,7 +36,7 @@ console.log('Starting application...');
 var s = Snap('#svg');
 var w = s.attr().width;
 var h = s.attr().height;
-console.log("SVG size: ".concat(w, " x ").concat(h));
+console.log("Canvas size: ".concat(w, " x ").concat(h));
 var creaseAssignment = {
   MOUNTAIN: 'mountain',
   VALLEY: 'valley',
@@ -205,6 +145,7 @@ function operate() {
 
 function checkSelectionStatus() {
   if (selection[tool].isComplete) {
+    // Perform a geometric operation and add/remove creases, vertices, etc.
     operate(); // Clear the selection group and deselect all SVG elements
 
     selection[tool].clear();
@@ -440,13 +381,21 @@ toolIcons.forEach(function (element) {
 });
 document.addEventListener('keydown', function (event) {
   if (event.keyCode === 13) {
+    // Print the planar graph
     console.log('Nodes:', g.nodes);
     console.log('Edges:', g.edges);
   } else if (event.keyCode === 71) {
+    // Hide or show all vertices
     s.selectAll('.vertex').forEach(function (element) {
       var showOrHide = showOrHide === undefined ? element.attr('display') === 'none' : !!showOrHide;
       element.attr('display', showOrHide ? '' : 'none');
     });
+  } else if (event.keyCode === 27) {
+    var removed = selection[tool].maybePop();
+
+    if (removed !== undefined) {
+      removed.removeClass('selected');
+    }
   }
 }); // Start the application
 
@@ -9646,9 +9595,9 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.PlanarGraph = void 0;
 
-var _math = require("./math.js");
-
 var geom = _interopRequireWildcard(require("./geometry.js"));
+
+var _math = require("./math.js");
 
 function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function _getRequireWildcardCache() { return cache; }; return cache; }
 
@@ -10008,8 +9957,11 @@ var SelectionGroup = /*#__PURE__*/function () {
   function SelectionGroup(className, count) {
     _classCallCheck(this, SelectionGroup);
 
-    this.className = className;
-    this.count = count;
+    // The DOM class name that is required in order for an element to be selectable as part of this group
+    this.className = className; // The number of DOM elements that are required in order to fulfill this selection group
+
+    this.count = count; // References to all DOM elements collected thus far
+
     this.refs = [];
   }
 
@@ -10027,6 +9979,11 @@ var SelectionGroup = /*#__PURE__*/function () {
       }
 
       return false;
+    }
+  }, {
+    key: "maybePop",
+    value: function maybePop() {
+      return this.refs.pop();
     }
   }, {
     key: "clear",
@@ -10067,6 +10024,11 @@ var OrderedSelection = /*#__PURE__*/function () {
       }
 
       return [didAdd, didAdvance];
+    }
+  }, {
+    key: "maybePop",
+    value: function maybePop() {
+      return this.currentGroup.maybePop();
     }
   }, {
     key: "advance",
