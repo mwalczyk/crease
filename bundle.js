@@ -1,367 +1,19 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 "use strict";
 
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.calculateTriangleIncenter = calculateTriangleIncenter;
-exports.calculateLineSegmentIntersection = calculateLineSegmentIntersection;
-exports.calculatePerpendicular = calculatePerpendicular;
-exports.isOnLineSegment = isOnLineSegment;
-exports.findClosestTo = findClosestTo;
-exports.closeTo = closeTo;
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
 
-var _math = require("./math.js");
+var geom = _interopRequireWildcard(require("./src/geometry.js"));
 
-/**
- * Calculates the incenter of the triangle formed by 3 points
- * @param {Vec2} a - the first point
- * @param {Vec2} b - the second point
- * @param {Vec2} c - the third point
- */
-function calculateTriangleIncenter(a, b, c) {
-  var A = b.distance(c);
-  var B = a.distance(c);
-  var C = a.distance(b);
-  var invP = 1.0 / (A + B + C);
-  var incenter = new _math.Vec2((A * a.x + B * b.x + C * c.x) * invP, (A * a.y + B * b.y + C * c.y) * invP);
-  return incenter;
-}
-/**
- * Calculates the intersection between two line segments or `null` if they do not intersect
- * @param {Vec2} a - the start of the first line segment
- * @param {Vec2} b - the end of the first line segment
- * @param {Vec2} c - the start of the second line segment
- * @param {Vec2} d - the end of the second line segment
- */
+var _graph = require("./src/graph.js");
 
+var _math = require("./src/math.js");
 
-function calculateLineSegmentIntersection(a, b, c, d) {
-  var deltaX0 = b.x - a.x;
-  var deltaY0 = b.y - a.y;
-  var deltaX1 = d.x - c.x;
-  var deltaY1 = d.y - c.y;
-  var denom = -deltaX1 * deltaY0 + deltaX0 * deltaY1;
-  var s = (-deltaY0 * (a.x - c.x) + deltaX0 * (a.y - c.y)) / denom;
-  var t = (deltaX1 * (a.y - c.y) - deltaY1 * (a.x - c.x)) / denom;
+var _selection = require("./src/selection.js");
 
-  if (s >= 0.0 && s <= 1.0 && t >= 0.0 && t <= 1.0) {
-    return new _math.Vec2(a.x + t * deltaX0, a.y + t * deltaY0);
-  }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function _getRequireWildcardCache() { return cache; }; return cache; }
 
-  return null;
-}
-/**
- * Calculates the perpendicular on a line from a given point
- * @param {Vec2} a - the start of the line segment
- * @param {Vec2} b - the end of the line segment
- * @param {Vec2} p - the point to drop a perpendicular from  
- */
-
-
-function calculatePerpendicular(a, b, p) {
-  var numer = (b.y - a.y) * (p.x - a.x) - (b.x - a.x) * (p.y - a.y);
-  var denom = Math.pow(b.y - a.y, 2.0) + Math.pow(b.x - a.x, 2.0);
-  var k = numer / denom;
-  return new _math.Vec2(p.x - k * (b.y - a.y), p.y + k * (b.x - a.x));
-}
-/**
- * Check if the specified point lies along the specified line segment
- * @param {Vec2} a - the start of the line segment
- * @param {Vec2} b - the end of the line segment
- * @param {Vec2} p - the point to test 
- * @param {boolean} includeEndpoints - whether or not a point at either of the endpoints should be considered
- * @param {number} eps - an epsilon (used for numerical stability)
- */
-
-
-function isOnLineSegment(a, b, p) {
-  var includeEndpoints = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : false;
-  var eps = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 0.001;
-  // The total length of the line segment
-  var ab = a.distance(b); // The lengths of the two sub-segments joining each endpoint to the specified point
-
-  var ac = a.distance(p);
-  var cb = p.distance(b); // Return `false` if the specified point is one of the endpoints of the line segment
-
-  return Math.abs(ac + cb - ab) < eps && Math.abs(ac) > eps && Math.abs(cb) > eps;
-}
-/**
- * Finds the index of the vertex that is closest to the specified target vertex 
- * @param {Vec2} t - the target vertex
- * @param {Vec2[]} ps - the array of vertices to test against
- */
-
-
-function findClosestTo(t, ps) {
-  var distances = ps.map(function (v) {
-    return Math.hypot(v.x - t.x, v.y - t.y);
-  });
-  var index = distances.indexOf(Math.min.apply(Math, distances));
-  var distance = distances[index];
-  return [index, distance];
-}
-/**
- * Determines whether the specified points are "close to" each other, i.e. the same
- * @param {Vec2} a - the first point
- * @param {Vec2} b - the second point
- * @param {number} eps - an epsilon (used for numerical stability)
- */
-
-
-function closeTo(a, b) {
-  var eps = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0.001;
-  return Math.abs(a.distance(b)) < eps;
-}
-
-},{"./math.js":4}],2:[function(require,module,exports){
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.PlanarGraph = void 0;
-
-var _math = require("./math.js");
-
-var _geometry = require("./geometry.js");
-
-function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest(); }
-
-function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
-
-function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(n); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
-
-function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
-
-function _iterableToArrayLimit(arr, i) { if (typeof Symbol === "undefined" || !(Symbol.iterator in Object(arr))) return; var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"] != null) _i["return"](); } finally { if (_d) throw _e; } } return _arr; }
-
-function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
-
-function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
-
-/**
- * A class that represents an embedding of a planar graph
- */
-var PlanarGraph = /*#__PURE__*/function () {
-  function PlanarGraph() {
-    _classCallCheck(this, PlanarGraph);
-
-    this.nodes = [];
-    this.edges = [];
-  }
-  /**
-   * @return {number} - the number of nodes in the planar graph
-   */
-
-
-  _createClass(PlanarGraph, [{
-    key: "nodeAt",
-
-    /**
-     * @param {number} index - a node index
-     * @return {Vec2} - the node at the specified index
-     */
-    value: function nodeAt(index) {
-      return this.nodes[index];
-    }
-    /**
-     * @param {number} index - an edge index
-     * @return {number[]} - the edge at the specified index (2-element array)
-     */
-
-  }, {
-    key: "edgeAt",
-    value: function edgeAt(index) {
-      return this.edges[index];
-    }
-    /**
-     * Attempts to add a new node to the graph at coordinates <node.x, node.y>
-     * @param {Vec2} node - the position of the new node
-     * @param {number} eps - an epsilon (used for numerical stability)
-     * @return {number[][]} - the index of the newly added node (or the index of an existing node if the 
-     *		specified node was close to an existing node) and a list containing the indices of all of the 
-     *		edges that changed as a result of adding the new node
-     */
-
-  }, {
-    key: "addNode",
-    value: function addNode(node) {
-      var eps = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0.001;
-
-      // Check if the vertex is the same as an existing vertex (within epsilon)
-      var _findClosestTo = (0, _geometry.findClosestTo)(node, this.nodes),
-          _findClosestTo2 = _slicedToArray(_findClosestTo, 2),
-          index = _findClosestTo2[0],
-          distance = _findClosestTo2[1];
-
-      if (distance < eps) {
-        // If the found distance is less than the specified threshold, the specified
-        // node is considered a "duplicate," so we return the index of the existing
-        // node
-        console.log("Attempting to add node that is very close node at index ".concat(index, " - returning the existing index instead"));
-        return [index, []];
-      } else {
-        // The new node is added at the end of the list, so we return that index along 
-        // with any edges that may have changed / been created
-        this.nodes.push(node);
-        var changedEdges = this.splitEdgesAtNode(this.nodeCount - 1);
-        return [this.nodeCount - 1, changedEdges];
-      }
-    }
-    /**
-     * Attempts to add a new edge between the two specified node indices, splitting any intersecting 
-     * edges and adding new nodes and edges as necessary to maintain planarity
-     * @param {number} indexA - the index of the first node
-     * @param {number} indexB - the index of the second node 
-     */
-
-  }, {
-    key: "addEdge",
-    value: function addEdge(indexA, indexB) {
-      // First, push back the new edge
-      this.edges.push([indexA, indexB]); // Perform line-segment/line-segment intersection tests
-
-      var _this$splitEdgesAlong = this.splitEdgesAlongEdge(this.edgeCount - 1),
-          _this$splitEdgesAlong2 = _slicedToArray(_this$splitEdgesAlong, 2),
-          changedNodes = _this$splitEdgesAlong2[0],
-          changedEdges = _this$splitEdgesAlong2[1]; // If the array of changed edges is empty, this means that no edge splitting was necessary,
-      // but we still want to make sure we return at least one edge index (in this case, the edge
-      // was simply added at the end of the graph's edge array, so just return that index)
-
-
-      if (changedEdges.length === 0) {
-        changedEdges.push(this.edgeCount - 1);
-      }
-
-      return [changedNodes, changedEdges];
-    }
-    /**
-     * Splits any edges that contain the specified node in their interiors
-     * @param {number} targetIndex - the index of the node to split along
-     * @return {number[]} - the indices of any newly created (or modified) edges
-     */
-
-  }, {
-    key: "splitEdgesAtNode",
-    value: function splitEdgesAtNode(targetIndex) {
-      var _this = this;
-
-      var changedEdges = [];
-      this.edges.forEach(function (edge, index) {
-        var onEdge = (0, _geometry.isOnLineSegment)(_this.nodes[edge[0]], _this.nodes[edge[1]], _this.nodes[targetIndex]);
-
-        if (onEdge) {
-          // Create the two new edges
-          var childEdgeA = [edge[0], targetIndex];
-          var childEdgeB = [edge[1], targetIndex]; // Put one of the new edges in the slot that was previously occupied by the old, 
-          // un-split edge and the other at the end of the array - the prior is done so that 
-          // we don't have to worry about the rest of the edges being "shuffled" as a result 
-          // of a standard array "remove" operation
-
-          _this.edges[index] = childEdgeA;
-
-          _this.edges.push(childEdgeB);
-
-          changedEdges.push(index, _this.edgeCount - 1);
-        }
-      });
-      return changedEdges;
-    }
-    /**
-     * Splits any edges that intersect with the specified edge
-     * @param {number} targetIndex - the index of the edge to split along
-     * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of 
-     *		any newly created (or modified) vertices while the second contains the indices of any 
-     *		newly created (or modified) edges
-     */
-
-  }, {
-    key: "splitEdgesAlongEdge",
-    value: function splitEdgesAlongEdge(targetIndex) {
-      var _this2 = this;
-
-      var changedNodes = [];
-      var changedEdges = []; // An array containing all of the points of intersections
-
-      var intersections = [];
-      this.edges.forEach(function (edge, index) {
-        if (targetIndex !== index) {
-          // The point of intersection (or null if no intersection is found)
-          var intersection = (0, _geometry.calculateLineSegmentIntersection)(_this2.nodes[edge[0]], _this2.nodes[edge[1]], _this2.nodes[_this2.edges[targetIndex][0]], _this2.nodes[_this2.edges[targetIndex][1]]);
-
-          if (intersection) {
-            intersections.push(intersection); //console.log(`Found intersection between edge ${targetIndex} and edge ${index}`);
-          }
-        }
-      });
-      intersections.forEach(function (intersection) {
-        // Add a new node at the point of intersection, which returns a node index and a list 
-        // of all of the edge indices that changed as a result of the additional node
-        var _this2$addNode = _this2.addNode(intersection),
-            _this2$addNode2 = _slicedToArray(_this2$addNode, 2),
-            nodeIndex = _this2$addNode2[0],
-            edgeIndices = _this2$addNode2[1];
-
-        changedNodes.push(nodeIndex);
-        changedEdges = changedEdges.concat(edgeIndices);
-      });
-      return [changedNodes, changedEdges];
-    }
-  }, {
-    key: "deleteNode",
-    value: function deleteNode(targetIndex) {
-      // First, remove the node at the specified index
-      this.nodes.splice(targetIndex, 1); // Then, delete any edges that contain the removed vertex 
-
-      this.deleteEdgesWithVertex(targetIndex);
-      var changedNodes = [targetIndex];
-      var changedEdges = []; // TODO: ...
-
-      return [changedNodes, changedEdges];
-    }
-  }, {
-    key: "deleteEdgesWithNode",
-    value: function deleteEdgesWithNode(targetIndex) {
-      var edgesToDelete = this.edges.filter(function (edge) {
-        return edge.includes(targetIndex);
-      });
-    }
-  }, {
-    key: "nodeCount",
-    get: function get() {
-      return this.nodes.length;
-    }
-    /**
-     * @return {number} - the number of edges in the planar graph
-     */
-
-  }, {
-    key: "edgeCount",
-    get: function get() {
-      return this.edges.length;
-    }
-  }]);
-
-  return PlanarGraph;
-}();
-
-exports.PlanarGraph = PlanarGraph;
-
-},{"./geometry.js":1,"./math.js":4}],3:[function(require,module,exports){
-"use strict";
-
-var _graph = require("./graph.js");
-
-var _math = require("./math.js");
-
-var _selection = require("./selection.js");
-
-var _geometry = require("./geometry.js");
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || _typeof(obj) !== "object" && typeof obj !== "function") { return { "default": obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj["default"] = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest(); }
 
@@ -533,7 +185,7 @@ function operate() {
   } else if (tool === tools.LINE) {} else if (tool === tools.INCENTER) {
     // Create 3 new creases that join each of the 3 points to their incenter
     var _vertices = selection[tool].groups[0].refs;
-    var incenter = (0, _geometry.calculateTriangleIncenter)(new _math.Vec2(_vertices[0].getBBox().cx, _vertices[0].getBBox().cy), new _math.Vec2(_vertices[1].getBBox().cx, _vertices[1].getBBox().cy), new _math.Vec2(_vertices[2].getBBox().cx, _vertices[2].getBBox().cy));
+    var incenter = geom.calculateTriangleIncenter(new _math.Vec2(_vertices[0].getBBox().cx, _vertices[0].getBBox().cy), new _math.Vec2(_vertices[1].getBBox().cx, _vertices[1].getBBox().cy), new _math.Vec2(_vertices[2].getBBox().cx, _vertices[2].getBBox().cy));
 
     _vertices.forEach(function (v) {
       return addCrease(new _math.Vec2(v.getBBox().cx, v.getBBox().cy), incenter);
@@ -542,7 +194,7 @@ function operate() {
     // Drop a perpendicular from the specified vertex to the specified crease
     var _vertices2 = selection[tool].groups[0].refs;
     var creases = selection[tool].groups[1].refs;
-    var perp = (0, _geometry.calculatePerpendicular)(new _math.Vec2(creases[0].attr().x1, creases[0].attr().y1), new _math.Vec2(creases[0].attr().x2, creases[0].attr().y2), new _math.Vec2(_vertices2[0].getBBox().cx, _vertices2[0].getBBox().cy));
+    var perp = geom.calculatePerpendicular(new _math.Vec2(creases[0].attr().x1, creases[0].attr().y1), new _math.Vec2(creases[0].attr().x2, creases[0].attr().y2), new _math.Vec2(_vertices2[0].getBBox().cx, _vertices2[0].getBBox().cy));
     addCrease(new _math.Vec2(_vertices2[0].getBBox().cx, _vertices2[0].getBBox().cy), perp);
   }
 }
@@ -642,7 +294,7 @@ function removeElementWithIndex(selector, index) {
 
 function addCrease(a, b) {
   // Don't add a crease if the two points are the same (or extremely close to one another)
-  if ((0, _geometry.closeTo)(a, b)) {
+  if (geom.closeTo(a, b)) {
     console.log('No crease created - the specified points are overlapping');
     return;
   }
@@ -800,117 +452,7 @@ document.addEventListener('keydown', function (event) {
 
 drawGrid();
 
-},{"./geometry.js":1,"./graph.js":2,"./math.js":4,"./selection.js":7,"snapsvg":6}],4:[function(require,module,exports){
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.Vec2 = void 0;
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
-
-function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
-
-var Vec2 = /*#__PURE__*/function () {
-  function Vec2(x, y) {
-    _classCallCheck(this, Vec2);
-
-    this.x = x;
-    this.y = y;
-  }
-
-  _createClass(Vec2, [{
-    key: "length",
-    value: function length() {
-      return Math.sqrt(this.x * this.x + this.y * this.y);
-    }
-  }, {
-    key: "normalize",
-    value: function normalize() {
-      return this.mul(1.0 / this.length());
-    }
-  }, {
-    key: "dot",
-    value: function dot(other) {
-      return this.mul(other).sum();
-    }
-  }, {
-    key: "distance",
-    value: function distance(other) {
-      return this.sub(other).length();
-    }
-  }, {
-    key: "add",
-    value: function add(other) {
-      // Scalar addition
-      if (typeof other === 'number') {
-        return new Vec2(this.x + other, this.y + other);
-      } // Vector (element-wise) addition
-
-
-      return new Vec2(this.x + other.x, this.y + other.y);
-    }
-  }, {
-    key: "sub",
-    value: function sub(other) {
-      // Scalar subtraction
-      if (typeof other === 'number') {
-        return new Vec2(this.x - other, this.y - other);
-      } // Vector (element-wise) subtraction
-
-
-      return new Vec2(this.x - other.x, this.y - other.y);
-    }
-  }, {
-    key: "mul",
-    value: function mul(other) {
-      // Scalar multiplication
-      if (typeof other === 'number') {
-        return new Vec2(this.x * other, this.y * other);
-      } // Vector (element-wise) multiplication
-
-
-      return new Vec2(this.x * other.x, this.y * other.y);
-    }
-  }, {
-    key: "div",
-    value: function div(other) {
-      // Scalar division
-      if (typeof other === 'number') {
-        return new Vec2(this.x / other, this.y / other);
-      } // Vector (element-wise) division
-
-
-      return new Vec2(this.x / other.x, this.y / other.y);
-    }
-  }, {
-    key: "sum",
-    value: function sum() {
-      return this.x + this.y;
-    }
-  }]);
-
-  return Vec2;
-}();
-
-exports.Vec2 = Vec2;
-
-var Vec3 = function Vec3() {
-  _classCallCheck(this, Vec3);
-};
-
-var Mat3 = function Mat3() {
-  _classCallCheck(this, Mat3);
-};
-
-var Mat4 = function Mat4() {
-  _classCallCheck(this, Mat4);
-};
-
-},{}],5:[function(require,module,exports){
+},{"./src/geometry.js":4,"./src/graph.js":5,"./src/math.js":6,"./src/selection.js":7,"snapsvg":3}],2:[function(require,module,exports){
 // Copyright (c) 2017 Adobe Systems Incorporated. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -1347,7 +889,7 @@ var Mat4 = function Mat4() {
     typeof module != "undefined" && module.exports ? module.exports = eve : typeof define === "function" && define.amd ? define("eve", [], function () { return eve; }) : glob.eve = eve;
 })(typeof window != "undefined" ? window : this);
 
-},{}],6:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
 // Snap.svg 0.5.0
 //
 // Copyright (c) 2013 – 2017 Adobe Systems Incorporated. All rights reserved.
@@ -9978,7 +9520,477 @@ Snap.plugin(function (Snap, Element, Paper, glob) {
 
 return Snap;
 }));
-},{"eve":5}],7:[function(require,module,exports){
+},{"eve":2}],4:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.calculateTriangleIncenter = calculateTriangleIncenter;
+exports.calculateLineSegmentIntersection = calculateLineSegmentIntersection;
+exports.calculatePerpendicular = calculatePerpendicular;
+exports.isOnLineSegment = isOnLineSegment;
+exports.findClosestTo = findClosestTo;
+exports.closeTo = closeTo;
+
+var _math = require("./math.js");
+
+/**
+ * Calculates the incenter of the triangle formed by 3 points
+ * @param {Vec2} a - the first point
+ * @param {Vec2} b - the second point
+ * @param {Vec2} c - the third point
+ */
+function calculateTriangleIncenter(a, b, c) {
+  var A = b.distance(c);
+  var B = a.distance(c);
+  var C = a.distance(b);
+  var invP = 1.0 / (A + B + C);
+  var incenter = new _math.Vec2((A * a.x + B * b.x + C * c.x) * invP, (A * a.y + B * b.y + C * c.y) * invP);
+  return incenter;
+}
+/**
+ * Calculates the intersection between two line segments or `null` if they do not intersect
+ * @param {Vec2} a - the start of the first line segment
+ * @param {Vec2} b - the end of the first line segment
+ * @param {Vec2} c - the start of the second line segment
+ * @param {Vec2} d - the end of the second line segment
+ */
+
+
+function calculateLineSegmentIntersection(a, b, c, d) {
+  var deltaX0 = b.x - a.x;
+  var deltaY0 = b.y - a.y;
+  var deltaX1 = d.x - c.x;
+  var deltaY1 = d.y - c.y;
+  var denom = -deltaX1 * deltaY0 + deltaX0 * deltaY1;
+  var s = (-deltaY0 * (a.x - c.x) + deltaX0 * (a.y - c.y)) / denom;
+  var t = (deltaX1 * (a.y - c.y) - deltaY1 * (a.x - c.x)) / denom;
+
+  if (s >= 0.0 && s <= 1.0 && t >= 0.0 && t <= 1.0) {
+    return new _math.Vec2(a.x + t * deltaX0, a.y + t * deltaY0);
+  }
+
+  return null;
+}
+/**
+ * Calculates the perpendicular on a line from a given point
+ * @param {Vec2} a - the start of the line segment
+ * @param {Vec2} b - the end of the line segment
+ * @param {Vec2} p - the point to drop a perpendicular from  
+ */
+
+
+function calculatePerpendicular(a, b, p) {
+  var numer = (b.y - a.y) * (p.x - a.x) - (b.x - a.x) * (p.y - a.y);
+  var denom = Math.pow(b.y - a.y, 2.0) + Math.pow(b.x - a.x, 2.0);
+  var k = numer / denom;
+  return new _math.Vec2(p.x - k * (b.y - a.y), p.y + k * (b.x - a.x));
+}
+/**
+ * Check if the specified point lies along the specified line segment
+ * @param {Vec2} a - the start of the line segment
+ * @param {Vec2} b - the end of the line segment
+ * @param {Vec2} p - the point to test 
+ * @param {boolean} includeEndpoints - whether or not a point at either of the endpoints should be considered
+ * @param {number} eps - an epsilon (used for numerical stability)
+ */
+
+
+function isOnLineSegment(a, b, p) {
+  var includeEndpoints = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : false;
+  var eps = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 0.001;
+  // The total length of the line segment
+  var ab = a.distance(b); // The lengths of the two sub-segments joining each endpoint to the specified point
+
+  var ac = a.distance(p);
+  var cb = p.distance(b); // Return `false` if the specified point is one of the endpoints of the line segment
+
+  return Math.abs(ac + cb - ab) < eps && Math.abs(ac) > eps && Math.abs(cb) > eps;
+}
+/**
+ * Finds the index of the vertex that is closest to the specified target vertex 
+ * @param {Vec2} t - the target vertex
+ * @param {Vec2[]} ps - the array of vertices to test against
+ */
+
+
+function findClosestTo(t, ps) {
+  var distances = ps.map(function (v) {
+    return Math.hypot(v.x - t.x, v.y - t.y);
+  });
+  var index = distances.indexOf(Math.min.apply(Math, distances));
+  var distance = distances[index];
+  return [index, distance];
+}
+/**
+ * Determines whether the specified points are "close to" each other, i.e. the same
+ * @param {Vec2} a - the first point
+ * @param {Vec2} b - the second point
+ * @param {number} eps - an epsilon (used for numerical stability)
+ */
+
+
+function closeTo(a, b) {
+  var eps = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0.001;
+  return Math.abs(a.distance(b)) < eps;
+}
+
+},{"./math.js":6}],5:[function(require,module,exports){
+"use strict";
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.PlanarGraph = void 0;
+
+var _math = require("./math.js");
+
+var geom = _interopRequireWildcard(require("./geometry.js"));
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function _getRequireWildcardCache() { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || _typeof(obj) !== "object" && typeof obj !== "function") { return { "default": obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj["default"] = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest(); }
+
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+
+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(n); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+
+function _iterableToArrayLimit(arr, i) { if (typeof Symbol === "undefined" || !(Symbol.iterator in Object(arr))) return; var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"] != null) _i["return"](); } finally { if (_d) throw _e; } } return _arr; }
+
+function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+/**
+ * A class that represents an embedding of a planar graph
+ */
+var PlanarGraph = /*#__PURE__*/function () {
+  function PlanarGraph() {
+    _classCallCheck(this, PlanarGraph);
+
+    this.nodes = [];
+    this.edges = [];
+  }
+  /**
+   * @return {number} - the number of nodes in the planar graph
+   */
+
+
+  _createClass(PlanarGraph, [{
+    key: "nodeAt",
+
+    /**
+     * @param {number} index - a node index
+     * @return {Vec2} - the node at the specified index
+     */
+    value: function nodeAt(index) {
+      return this.nodes[index];
+    }
+    /**
+     * @param {number} index - an edge index
+     * @return {number[]} - the edge at the specified index (2-element array)
+     */
+
+  }, {
+    key: "edgeAt",
+    value: function edgeAt(index) {
+      return this.edges[index];
+    }
+    /**
+     * Attempts to add a new node to the graph at coordinates <node.x, node.y>
+     * @param {Vec2} node - the position of the new node
+     * @param {number} eps - an epsilon (used for numerical stability)
+     * @return {number[][]} - the index of the newly added node (or the index of an existing node if the 
+     *		specified node was close to an existing node) and a list containing the indices of all of the 
+     *		edges that changed as a result of adding the new node
+     */
+
+  }, {
+    key: "addNode",
+    value: function addNode(node) {
+      var eps = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0.001;
+
+      // Check if the vertex is the same as an existing vertex (within epsilon)
+      var _geom$findClosestTo = geom.findClosestTo(node, this.nodes),
+          _geom$findClosestTo2 = _slicedToArray(_geom$findClosestTo, 2),
+          index = _geom$findClosestTo2[0],
+          distance = _geom$findClosestTo2[1];
+
+      if (distance < eps) {
+        // If the found distance is less than the specified threshold, the specified
+        // node is considered a "duplicate," so we return the index of the existing
+        // node
+        console.log("Attempting to add node that is very close node at index ".concat(index, " - returning the existing index instead"));
+        return [index, []];
+      } else {
+        // The new node is added at the end of the list, so we return that index along 
+        // with any edges that may have changed / been created
+        this.nodes.push(node);
+        var changedEdges = this.splitEdgesAtNode(this.nodeCount - 1);
+        return [this.nodeCount - 1, changedEdges];
+      }
+    }
+    /**
+     * Attempts to add a new edge between the two specified node indices, splitting any intersecting 
+     * edges and adding new nodes and edges as necessary to maintain planarity
+     * @param {number} indexA - the index of the first node
+     * @param {number} indexB - the index of the second node 
+     */
+
+  }, {
+    key: "addEdge",
+    value: function addEdge(indexA, indexB) {
+      // First, push back the new edge
+      this.edges.push([indexA, indexB]); // Perform line-segment/line-segment intersection tests
+
+      var _this$splitEdgesAlong = this.splitEdgesAlongEdge(this.edgeCount - 1),
+          _this$splitEdgesAlong2 = _slicedToArray(_this$splitEdgesAlong, 2),
+          changedNodes = _this$splitEdgesAlong2[0],
+          changedEdges = _this$splitEdgesAlong2[1]; // If the array of changed edges is empty, this means that no edge splitting was necessary,
+      // but we still want to make sure we return at least one edge index (in this case, the edge
+      // was simply added at the end of the graph's edge array, so just return that index)
+
+
+      if (changedEdges.length === 0) {
+        changedEdges.push(this.edgeCount - 1);
+      }
+
+      return [changedNodes, changedEdges];
+    }
+    /**
+     * Splits any edges that contain the specified node in their interiors
+     * @param {number} targetIndex - the index of the node to split along
+     * @return {number[]} - the indices of any newly created (or modified) edges
+     */
+
+  }, {
+    key: "splitEdgesAtNode",
+    value: function splitEdgesAtNode(targetIndex) {
+      var _this = this;
+
+      var changedEdges = [];
+      this.edges.forEach(function (edge, index) {
+        var onEdge = geom.isOnLineSegment(_this.nodes[edge[0]], _this.nodes[edge[1]], _this.nodes[targetIndex]);
+
+        if (onEdge) {
+          // Create the two new edges
+          var childEdgeA = [edge[0], targetIndex];
+          var childEdgeB = [edge[1], targetIndex]; // Put one of the new edges in the slot that was previously occupied by the old, 
+          // un-split edge and the other at the end of the array - the prior is done so that 
+          // we don't have to worry about the rest of the edges being "shuffled" as a result 
+          // of a standard array "remove" operation
+
+          _this.edges[index] = childEdgeA;
+
+          _this.edges.push(childEdgeB);
+
+          changedEdges.push(index, _this.edgeCount - 1);
+        }
+      });
+      return changedEdges;
+    }
+    /**
+     * Splits any edges that intersect with the specified edge
+     * @param {number} targetIndex - the index of the edge to split along
+     * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of 
+     *		any newly created (or modified) vertices while the second contains the indices of any 
+     *		newly created (or modified) edges
+     */
+
+  }, {
+    key: "splitEdgesAlongEdge",
+    value: function splitEdgesAlongEdge(targetIndex) {
+      var _this2 = this;
+
+      var changedNodes = [];
+      var changedEdges = []; // An array containing all of the points of intersections
+
+      var intersections = [];
+      this.edges.forEach(function (edge, index) {
+        if (targetIndex !== index) {
+          // The point of intersection (or null if no intersection is found)
+          var intersection = geom.calculateLineSegmentIntersection(_this2.nodes[edge[0]], _this2.nodes[edge[1]], _this2.nodes[_this2.edges[targetIndex][0]], _this2.nodes[_this2.edges[targetIndex][1]]);
+
+          if (intersection) {
+            intersections.push(intersection); //console.log(`Found intersection between edge ${targetIndex} and edge ${index}`);
+          }
+        }
+      });
+      intersections.forEach(function (intersection) {
+        // Add a new node at the point of intersection, which returns a node index and a list 
+        // of all of the edge indices that changed as a result of the additional node
+        var _this2$addNode = _this2.addNode(intersection),
+            _this2$addNode2 = _slicedToArray(_this2$addNode, 2),
+            nodeIndex = _this2$addNode2[0],
+            edgeIndices = _this2$addNode2[1];
+
+        changedNodes.push(nodeIndex);
+        changedEdges = changedEdges.concat(edgeIndices);
+      });
+      return [changedNodes, changedEdges];
+    }
+  }, {
+    key: "deleteNode",
+    value: function deleteNode(targetIndex) {
+      // First, remove the node at the specified index
+      this.nodes.splice(targetIndex, 1); // Then, delete any edges that contain the removed vertex 
+
+      this.deleteEdgesWithVertex(targetIndex);
+      var changedNodes = [targetIndex];
+      var changedEdges = []; // TODO: ...
+
+      return [changedNodes, changedEdges];
+    }
+  }, {
+    key: "deleteEdgesWithNode",
+    value: function deleteEdgesWithNode(targetIndex) {
+      var edgesToDelete = this.edges.filter(function (edge) {
+        return edge.includes(targetIndex);
+      });
+    }
+  }, {
+    key: "nodeCount",
+    get: function get() {
+      return this.nodes.length;
+    }
+    /**
+     * @return {number} - the number of edges in the planar graph
+     */
+
+  }, {
+    key: "edgeCount",
+    get: function get() {
+      return this.edges.length;
+    }
+  }]);
+
+  return PlanarGraph;
+}();
+
+exports.PlanarGraph = PlanarGraph;
+
+},{"./geometry.js":4,"./math.js":6}],6:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Vec2 = void 0;
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+var Vec2 = /*#__PURE__*/function () {
+  function Vec2(x, y) {
+    _classCallCheck(this, Vec2);
+
+    this.x = x;
+    this.y = y;
+  }
+
+  _createClass(Vec2, [{
+    key: "length",
+    value: function length() {
+      return Math.sqrt(this.x * this.x + this.y * this.y);
+    }
+  }, {
+    key: "normalize",
+    value: function normalize() {
+      return this.mul(1.0 / this.length());
+    }
+  }, {
+    key: "dot",
+    value: function dot(other) {
+      return this.mul(other).sum();
+    }
+  }, {
+    key: "distance",
+    value: function distance(other) {
+      return this.sub(other).length();
+    }
+  }, {
+    key: "add",
+    value: function add(other) {
+      // Scalar addition
+      if (typeof other === 'number') {
+        return new Vec2(this.x + other, this.y + other);
+      } // Vector (element-wise) addition
+
+
+      return new Vec2(this.x + other.x, this.y + other.y);
+    }
+  }, {
+    key: "sub",
+    value: function sub(other) {
+      // Scalar subtraction
+      if (typeof other === 'number') {
+        return new Vec2(this.x - other, this.y - other);
+      } // Vector (element-wise) subtraction
+
+
+      return new Vec2(this.x - other.x, this.y - other.y);
+    }
+  }, {
+    key: "mul",
+    value: function mul(other) {
+      // Scalar multiplication
+      if (typeof other === 'number') {
+        return new Vec2(this.x * other, this.y * other);
+      } // Vector (element-wise) multiplication
+
+
+      return new Vec2(this.x * other.x, this.y * other.y);
+    }
+  }, {
+    key: "div",
+    value: function div(other) {
+      // Scalar division
+      if (typeof other === 'number') {
+        return new Vec2(this.x / other, this.y / other);
+      } // Vector (element-wise) division
+
+
+      return new Vec2(this.x / other.x, this.y / other.y);
+    }
+  }, {
+    key: "sum",
+    value: function sum() {
+      return this.x + this.y;
+    }
+  }]);
+
+  return Vec2;
+}();
+
+exports.Vec2 = Vec2;
+
+var Vec3 = function Vec3() {
+  _classCallCheck(this, Vec3);
+};
+
+var Mat3 = function Mat3() {
+  _classCallCheck(this, Mat3);
+};
+
+var Mat4 = function Mat4() {
+  _classCallCheck(this, Mat4);
+};
+
+},{}],7:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -10086,4 +10098,4 @@ var OrderedSelection = /*#__PURE__*/function () {
 
 exports.OrderedSelection = OrderedSelection;
 
-},{}]},{},[3]);
+},{}]},{},[1]);

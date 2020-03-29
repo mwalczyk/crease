@@ -1,7 +1,7 @@
-import { PlanarGraph } from './graph.js';
-import { Vec2 } from './math.js';
-import { SelectionGroup, OrderedSelection } from './selection.js';
-import { calculateTriangleIncenter, calculatePerpendicular, closeTo } from './geometry.js';
+import * as geom from './src/geometry.js';
+import { PlanarGraph } from './src/graph.js';
+import { Vec2 } from './src/math.js';
+import { SelectionGroup, OrderedSelection } from './src/selection.js';
 
 const snapsvg = require('snapsvg');
 
@@ -161,9 +161,9 @@ function operate() {
 	} else if (tool === tools.INCENTER) {
 		// Create 3 new creases that join each of the 3 points to their incenter
 		const vertices = selection[tool].groups[0].refs;
-		const incenter = calculateTriangleIncenter(new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy),
-												   new Vec2(vertices[1].getBBox().cx, vertices[1].getBBox().cy), 
-												   new Vec2(vertices[2].getBBox().cx, vertices[2].getBBox().cy));
+		const incenter = geom.calculateTriangleIncenter(new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy),
+												   		new Vec2(vertices[1].getBBox().cx, vertices[1].getBBox().cy), 
+												   		new Vec2(vertices[2].getBBox().cx, vertices[2].getBBox().cy));
 
 		vertices.forEach(v => addCrease(new Vec2(v.getBBox().cx, v.getBBox().cy), incenter));
 
@@ -171,9 +171,9 @@ function operate() {
 		// Drop a perpendicular from the specified vertex to the specified crease
 		const vertices = selection[tool].groups[0].refs;
 		const creases = selection[tool].groups[1].refs;
-		let perp = calculatePerpendicular(new Vec2(creases[0].attr().x1, creases[0].attr().y1), 
-										  new Vec2(creases[0].attr().x2, creases[0].attr().y2),
-										  new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy));
+		let perp = geom.calculatePerpendicular(new Vec2(creases[0].attr().x1, creases[0].attr().y1), 
+										  	   new Vec2(creases[0].attr().x2, creases[0].attr().y2),
+										  	   new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy));
 
 		addCrease(new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy), perp);
 
@@ -271,7 +271,7 @@ function removeElementWithIndex(selector, index) {
  */
 function addCrease(a, b) {
 	// Don't add a crease if the two points are the same (or extremely close to one another)
-	if (closeTo(a, b)) {
+	if (geom.closeTo(a, b)) {
 		console.log('No crease created - the specified points are overlapping');
 		return;
 	}

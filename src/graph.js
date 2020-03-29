@@ -1,5 +1,5 @@
 import { Vec2 } from './math.js'
-import { calculateLineSegmentIntersection, isOnLineSegment, findClosestTo } from './geometry.js';
+import * as geom from './geometry.js';
 
 /**
  * A class that represents an embedding of a planar graph
@@ -51,7 +51,7 @@ export class PlanarGraph {
 	 */
 	addNode(node, eps=0.001) {
 		// Check if the vertex is the same as an existing vertex (within epsilon)
-		const [index, distance] = findClosestTo(node, this.nodes);
+		const [index, distance] = geom.findClosestTo(node, this.nodes);
 
 		if (distance < eps) {
 			// If the found distance is less than the specified threshold, the specified
@@ -101,9 +101,9 @@ export class PlanarGraph {
 		let changedEdges = [];
 
 		this.edges.forEach((edge, index) => {
-			const onEdge = isOnLineSegment(this.nodes[edge[0]],
-										   this.nodes[edge[1]],
-										   this.nodes[targetIndex]);
+			const onEdge = geom.isOnLineSegment(this.nodes[edge[0]],
+										   		this.nodes[edge[1]],
+										   		this.nodes[targetIndex]);
 			if (onEdge) {
 				// Create the two new edges
 				const childEdgeA = [edge[0], targetIndex];
@@ -141,7 +141,7 @@ export class PlanarGraph {
 
 			if (targetIndex !== index) {
 				// The point of intersection (or null if no intersection is found)
-				const intersection = calculateLineSegmentIntersection(
+				const intersection = geom.calculateLineSegmentIntersection(
 					this.nodes[edge[0]],
 					this.nodes[edge[1]],
 					this.nodes[this.edges[targetIndex][0]],
