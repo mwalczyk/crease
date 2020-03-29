@@ -1,7 +1,9 @@
 import { Vec2 } from './math.js'
 import { calculateLineSegmentIntersection, isOnLineSegment, findClosestTo } from './geometry.js';
 
-// A class that represents an embedding of a planar graph
+/**
+ * A class that represents an embedding of a planar graph
+ */
 export class PlanarGraph {
 
 	constructor() {
@@ -9,10 +11,16 @@ export class PlanarGraph {
 		this.edges = [];
 	}
 
+	/**
+	 * @return {number} - the number of nodes in the planar graph
+	 */ 
 	get nodeCount() {
 		return this.nodes.length;
 	}
 
+	/**
+	 * @return {number} - the number of edges in the planar graph
+	 */ 
 	get edgeCount() {
 		return this.edges.length;
 	}
@@ -27,7 +35,7 @@ export class PlanarGraph {
 
 	/**
 	 * @param {number} index - an edge index
-	 * @return {number[]} - the edge at the specified index
+	 * @return {number[]} - the edge at the specified index (2-element array)
 	 */
 	edgeAt(index) {
 		return this.edges[index];
@@ -37,9 +45,9 @@ export class PlanarGraph {
 	 * Attempts to add a new node to the graph at coordinates <node.x, node.y>
 	 * @param {Vec2} node - the position of the new node
 	 * @param {number} eps - an epsilon (used for numerical stability)
-	 * @return {[number, number[]]} - the index of the newly added node (or the index of an existing
-	 * 		node if the specified node was close to an existing node) and a list containing the indices
-	 *		of all of the edges that changed as a result of adding the new node
+	 * @return {number[][]} - the index of the newly added node (or the index of an existing node if the 
+	 *		specified node was close to an existing node) and a list containing the indices of all of the 
+	 *		edges that changed as a result of adding the new node
 	 */
 	addNode(node, eps=0.001) {
 		// Check if the vertex is the same as an existing vertex (within epsilon)
@@ -55,88 +63,126 @@ export class PlanarGraph {
 			// The new node is added at the end of the list, so we return that index along 
 			// with any edges that may have changed / been created
 			this.nodes.push(node);
-			const changedEdges = this.splitEdgesAlong(this.nodeCount - 1);	
+			const changedEdges = this.splitEdgesAtNode(this.nodeCount - 1);	
 			
 			return [this.nodeCount - 1, changedEdges];
 		}
 	}
 
-	// Adds an edge between the nodes at indices `a` and `b` and splits any intersecting
-	// edges, adding new nodes and edges as necessary to maintain planarity
-	addEdge(a, b) {
-
+	/**
+	 * Attempts to add a new edge between the two specified node indices, splitting any intersecting 
+	 * edges and adding new nodes and edges as necessary to maintain planarity
+	 * @param {number} indexA - the index of the first node
+	 * @param {number} indexB - the index of the second node 
+	 */
+	addEdge(indexA, indexB) {
 		// First, push back the new edge
-		this.edges.push([a, b]);
+		this.edges.push([indexA, indexB]);
 
-		// let invalidEdges = [];
-		// let updatedEdges = [];
-		// this.edges.forEach((edge, index) => {
-		// 	const intersection = calculateLineSegmentIntersection(
-		// 		this.nodes[edge[0]],
-		// 		this.nodes[edge[1]],
-		// 		this.nodes[a],
-		// 		this.nodes[b]
-		// 	);
+		// Perform line-segment/line-segment intersection tests
+		let [changedNodes, changedEdges] = this.splitEdgesAlongEdge(this.edgeCount - 1);
 
-		// 	if (intersection) {
+		// If the array of changed edges is empty, this means that no edge splitting was necessary,
+		// but we still want to make sure we return at least one edge index (in this case, the edge
+		// was simply added at the end of the graph's edge array, so just return that index)
+		if (changedEdges.length === 0) {
+			changedEdges.push(this.edgeCount - 1);
+		}
 
-		// 		// If the new edge intersects (or touches) an existing edge, we need
-		// 		// to split that edge, removing the original "unsplit" edge, and pushing
-		// 		// back the two new subdivisions
-
-
-		// 		console.log(`Found intersection between new edge and edge ${index}`);
-		// 	}
-		// });
-
-		return this.edgeCount - 1;
+		return [changedNodes, changedEdges];
 	}
 
 	/**
 	 * Splits any edges that contain the specified node in their interiors
-	 * @param {number} index - the position of the new node
+	 * @param {number} targetIndex - the index of the node to split along
 	 * @return {number[]} - the indices of any newly created (or modified) edges
 	 */
-	splitEdgesAlong(nodeIndex) {
+	splitEdgesAtNode(targetIndex) {
 		let changedEdges = [];
 
-		this.edges.forEach((edge, edgeIndex) => {
+		this.edges.forEach((edge, index) => {
 			const onEdge = isOnLineSegment(this.nodes[edge[0]],
 										   this.nodes[edge[1]],
-										   this.nodes[nodeIndex]);
+										   this.nodes[targetIndex]);
 			if (onEdge) {
 				// Create the two new edges
-				const childEdgeA = [edge[0], nodeIndex];
-				const childEdgeB = [edge[1], nodeIndex]; 
+				const childEdgeA = [edge[0], targetIndex];
+				const childEdgeB = [edge[1], targetIndex]; 
 
-				// Put one of them in the place of the old, un-split edge and the other 
-				// at the end of the array
-				this.edges[edgeIndex] = childEdgeA;
+				// Put one of the new edges in the slot that was previously occupied by the old, 
+				// un-split edge and the other at the end of the array - the prior is done so that 
+				// we don't have to worry about the rest of the edges being "shuffled" as a result 
+				// of a standard array "remove" operation
+				this.edges[index] = childEdgeA;
 				this.edges.push(childEdgeB);
 	
-				changedEdges.push(edgeIndex, this.edgeCount - 1);
+				changedEdges.push(index, this.edgeCount - 1);
 			}
 		});
 
 		return changedEdges;
 	}
 
-	deleteNode(index) {
-		// First, remove the vertex at the specified index
-		this.nodes.splice(index, 1);
+	/**
+	 * Splits any edges that intersect with the specified edge
+	 * @param {number} targetIndex - the index of the edge to split along
+	 * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of 
+	 *		any newly created (or modified) vertices while the second contains the indices of any 
+	 *		newly created (or modified) edges
+	 */
+	splitEdgesAlongEdge(targetIndex) {
+		let changedNodes = [];
+		let changedEdges = [];
+
+		// An array containing all of the points of intersections
+		let intersections = [];
+
+		this.edges.forEach((edge, index) => {
+
+			if (targetIndex !== index) {
+				// The point of intersection (or null if no intersection is found)
+				const intersection = calculateLineSegmentIntersection(
+					this.nodes[edge[0]],
+					this.nodes[edge[1]],
+					this.nodes[this.edges[targetIndex][0]],
+					this.nodes[this.edges[targetIndex][1]]
+				);
+				if (intersection) {
+					intersections.push(intersection);
+					//console.log(`Found intersection between edge ${targetIndex} and edge ${index}`);
+				}
+			}
+		});
+
+		intersections.forEach(intersection => {
+			// Add a new node at the point of intersection, which returns a node index and a list 
+			// of all of the edge indices that changed as a result of the additional node
+			const [nodeIndex, edgeIndices] = this.addNode(intersection);
+
+			changedNodes.push(nodeIndex);
+			changedEdges = changedEdges.concat(edgeIndices);
+		});
+
+		return [changedNodes, changedEdges];
+	}
+
+	deleteNode(targetIndex) {
+		// First, remove the node at the specified index
+		this.nodes.splice(targetIndex, 1);
 
 		// Then, delete any edges that contain the removed vertex 
-		this.deleteEdgesWithVertex(index);
+		this.deleteEdgesWithVertex(targetIndex);
 
+		let changedNodes = [targetIndex];
 		let changedEdges = [];
 
 		// TODO: ...
 
-		return changedEdges;	
+		return [changedNodes, changedEdges];	
 	}
 
-	deleteEdgesWithNode(index) {
-		this.edges = this.edges.filter(e => !e.includes(index));
+	deleteEdgesWithNode(targetIndex) {
+		const edgesToDelete = this.edges.filter(edge => edge.includes(targetIndex));
 	}
 
 }

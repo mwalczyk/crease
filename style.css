@@ -37,14 +37,6 @@ svg .paper {
 	fill: hsl(0, 0%, 88%);
 }
 
-svg .grid-point {
-	fill: hsl(5, 0%, 60%);
-}
-
-svg .grid-point:hover {
-	fill: hsl(5, 0%, 30%);
-}
-
 svg .vertex {
 	fill: hsl(221, 12%, 60%);
 }
@@ -92,14 +84,5 @@ svg .crease.mountain:hover {
 svg .crease.selected {
 	stroke: hsl(48, 100%, 50%);
 }
-
-
-/*svg .crease-selected {
-	stroke: hsl(48, 100%, 50%);
-}
-
-svg .crease-selected:hover {
-	stroke: hsl(48, 100%, 40%);
-}*/
 
 

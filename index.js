@@ -89,7 +89,7 @@ const tools = {
 	PERPENDICULAR: 'perpendicular'
 };
 
-let selectionGroups = {
+let selection = {
 	'line-segment': new OrderedSelection([new SelectionGroup('vertex', 2)]),
 	'line': new OrderedSelection([new SelectionGroup('vertex', 2)]),
 	'incenter': new OrderedSelection([new SelectionGroup('vertex', 3)]),
@@ -131,7 +131,7 @@ function animateCycle(element, attrName, percent, timeTo=200, timeFrom=50) {
  * Animates the group of objects that are currently selectable
  */
 function animateSelectableObjects() {
-	const className = selectionGroups[tool].currentGroup.className;
+	const className = selection[tool].currentGroup.className;
 	const elements = s.selectAll('.' + className);
 	
 	switch (className) {
@@ -152,7 +152,7 @@ function removeSelectedClass() {
 function operate() {
 	if (tool === tools.LINE_SEGMENT) {
 		// Add a crease between the two selected vertices
-		const vertices = selectionGroups[tool].groups[0].refs;
+		const vertices = selection[tool].groups[0].refs;
 		addCrease(new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy),
 				  new Vec2(vertices[1].getBBox().cx, vertices[1].getBBox().cy));
 
@@ -160,7 +160,7 @@ function operate() {
 
 	} else if (tool === tools.INCENTER) {
 		// Create 3 new creases that join each of the 3 points to their incenter
-		const vertices = selectionGroups[tool].groups[0].refs;
+		const vertices = selection[tool].groups[0].refs;
 		const incenter = calculateTriangleIncenter(new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy),
 												   new Vec2(vertices[1].getBBox().cx, vertices[1].getBBox().cy), 
 												   new Vec2(vertices[2].getBBox().cx, vertices[2].getBBox().cy));
@@ -169,8 +169,8 @@ function operate() {
 
 	} else if (tool === tools.PERPENDICULAR) {
 		// Drop a perpendicular from the specified vertex to the specified crease
-		const vertices = selectionGroups[tool].groups[0].refs;
-		const creases = selectionGroups[tool].groups[1].refs;
+		const vertices = selection[tool].groups[0].refs;
+		const creases = selection[tool].groups[1].refs;
 		let perp = calculatePerpendicular(new Vec2(creases[0].attr().x1, creases[0].attr().y1), 
 										  new Vec2(creases[0].attr().x2, creases[0].attr().y2),
 										  new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy));
@@ -184,11 +184,11 @@ function operate() {
  * Checks if the selection is complete for the current tool 
  */
 function checkSelectionStatus() {
-	if (selectionGroups[tool].isComplete) {
+	if (selection[tool].isComplete) {
 		operate();
 
 		// Clear the selection group and deselect all SVG elements
-		selectionGroups[tool].clear();
+		selection[tool].clear();
 		removeSelectedClass();
 		animateSelectableObjects();
 	}
@@ -221,7 +221,7 @@ function cycleCreaseAssignmet(element) {
 
 // Callback function used by all selectable objects
 let callbackClickSelectable = function() {
-	const [didAdd, didAdvance] = selectionGroups[tool].maybeAdd(this);
+	const [didAdd, didAdvance] = selection[tool].maybeAdd(this);
 	if (didAdd) {
 		this.addClass('selected');
 	}
@@ -231,6 +231,7 @@ let callbackClickSelectable = function() {
 	checkSelectionStatus();
 }
 
+// Additional crease callback functions
 let callbackCreaseDoubleClicked = function() {
 	cycleCreaseAssignmet(this);
 }
@@ -264,9 +265,9 @@ function removeElementWithIndex(selector, index) {
 }
 
 /**
- * Attempts to add a new edge to the planar graph
- * @param {Vec2} a - the first endpoint of the edge
- * @param {Vec2} b - the second endpoint of the edge	
+ * Adds a new crease to the paper, modifying the underlying planar graph as necessary
+ * @param {Vec2} a - the coordinates of the first endpoint of the crease
+ * @param {Vec2} b - the coordinates of the second endpoint of the crease	
  */
 function addCrease(a, b) {
 	// Don't add a crease if the two points are the same (or extremely close to one another)
@@ -275,13 +276,14 @@ function addCrease(a, b) {
 		return;
 	}
 
-	let index0 = addVertex(a);
-	let index1 = addVertex(b);
-	let edgeIndex = g.addEdge(index0, index1);
+	let indexA = addVertex(a);
+	let indexB = addVertex(b);
+	let [nodeIndices, edgeIndices] = g.addEdge(indexA, indexB);
 
-	drawCrease(edgeIndex)
+	nodeIndices.forEach(index => drawVertex(index));
+	edgeIndices.forEach(index => drawCrease(index));
 
-	return edgeIndex;
+	// return edgeIndex? - see `addVertex`
 }
 
 /**
@@ -317,21 +319,16 @@ function drawCrease(index) {
 }
 
 /**
- * Attempts to add a new node to the planar graph
- * @param {Vec2} p - the position of the node
+ * Adds a new vertex (reference point) to the paper, modifying the underlying planar graph as necessary
+ * @param {Vec2} p - the coordinates of the vertex
  */
 function addVertex(p) {
 	// Try to add a new node to the graph
 	const [nodeIndex, edgeIndices] = g.addNode(p);
 
-	// Draw the vertex
+	// Draw the vertex and redraw any creases that may have changed as a result of the addition
 	drawVertex(nodeIndex);
-	
-	// Draw any changed creases
-	edgeIndices.forEach(index => {
-		drawCrease(index); 
-		console.log(`Changed edge ${index}`);
-	});
+	edgeIndices.forEach(index => drawCrease(index));
 
 	return nodeIndex;
 }
@@ -348,9 +345,7 @@ function drawVertex(index) {
 		console.log(`Vertex SVG with stored index: ${index} was newly added`);
 	}
 
-	let svg = s.circle(g.nodes[index].x, 
-					   g.nodes[index].y, 
-					   vertexDrawRadius);
+	let svg = s.circle(g.nodes[index].x, g.nodes[index].y, vertexDrawRadius);
 
 	svg.addClass('vertex');
 	svg.data('index', index);
@@ -424,7 +419,7 @@ toolIcons.forEach(element => {
 		tool = this.getAttribute('op');
 		console.log(`Switched to tool: ${tool}`)
 
-		selectionGroups[tool].clear();
+		selection[tool].clear();
 		animateSelectableObjects();
 	});
 });

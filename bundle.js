@@ -144,7 +144,9 @@ function _defineProperties(target, props) { for (var i = 0; i < props.length; i+
 
 function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
 
-// A class that represents an embedding of a planar graph
+/**
+ * A class that represents an embedding of a planar graph
+ */
 var PlanarGraph = /*#__PURE__*/function () {
   function PlanarGraph() {
     _classCallCheck(this, PlanarGraph);
@@ -152,6 +154,10 @@ var PlanarGraph = /*#__PURE__*/function () {
     this.nodes = [];
     this.edges = [];
   }
+  /**
+   * @return {number} - the number of nodes in the planar graph
+   */
+
 
   _createClass(PlanarGraph, [{
     key: "nodeAt",
@@ -165,7 +171,7 @@ var PlanarGraph = /*#__PURE__*/function () {
     }
     /**
      * @param {number} index - an edge index
-     * @return {number[]} - the edge at the specified index
+     * @return {number[]} - the edge at the specified index (2-element array)
      */
 
   }, {
@@ -177,9 +183,9 @@ var PlanarGraph = /*#__PURE__*/function () {
      * Attempts to add a new node to the graph at coordinates <node.x, node.y>
      * @param {Vec2} node - the position of the new node
      * @param {number} eps - an epsilon (used for numerical stability)
-     * @return {[number, number[]]} - the index of the newly added node (or the index of an existing
-     * 		node if the specified node was close to an existing node) and a list containing the indices
-     *		of all of the edges that changed as a result of adding the new node
+     * @return {number[][]} - the index of the newly added node (or the index of an existing node if the 
+     *		specified node was close to an existing node) and a list containing the indices of all of the 
+     *		edges that changed as a result of adding the new node
      */
 
   }, {
@@ -203,81 +209,126 @@ var PlanarGraph = /*#__PURE__*/function () {
         // The new node is added at the end of the list, so we return that index along 
         // with any edges that may have changed / been created
         this.nodes.push(node);
-        var changedEdges = this.splitEdgesAlong(this.nodeCount - 1);
+        var changedEdges = this.splitEdgesAtNode(this.nodeCount - 1);
         return [this.nodeCount - 1, changedEdges];
       }
-    } // Adds an edge between the nodes at indices `a` and `b` and splits any intersecting
-    // edges, adding new nodes and edges as necessary to maintain planarity
+    }
+    /**
+     * Attempts to add a new edge between the two specified node indices, splitting any intersecting 
+     * edges and adding new nodes and edges as necessary to maintain planarity
+     * @param {number} indexA - the index of the first node
+     * @param {number} indexB - the index of the second node 
+     */
 
   }, {
     key: "addEdge",
-    value: function addEdge(a, b) {
+    value: function addEdge(indexA, indexB) {
       // First, push back the new edge
-      this.edges.push([a, b]); // let invalidEdges = [];
-      // let updatedEdges = [];
-      // this.edges.forEach((edge, index) => {
-      // 	const intersection = calculateLineSegmentIntersection(
-      // 		this.nodes[edge[0]],
-      // 		this.nodes[edge[1]],
-      // 		this.nodes[a],
-      // 		this.nodes[b]
-      // 	);
-      // 	if (intersection) {
-      // 		// If the new edge intersects (or touches) an existing edge, we need
-      // 		// to split that edge, removing the original "unsplit" edge, and pushing
-      // 		// back the two new subdivisions
-      // 		console.log(`Found intersection between new edge and edge ${index}`);
-      // 	}
-      // });
+      this.edges.push([indexA, indexB]); // Perform line-segment/line-segment intersection tests
 
-      return this.edgeCount - 1;
+      var _this$splitEdgesAlong = this.splitEdgesAlongEdge(this.edgeCount - 1),
+          _this$splitEdgesAlong2 = _slicedToArray(_this$splitEdgesAlong, 2),
+          changedNodes = _this$splitEdgesAlong2[0],
+          changedEdges = _this$splitEdgesAlong2[1]; // If the array of changed edges is empty, this means that no edge splitting was necessary,
+      // but we still want to make sure we return at least one edge index (in this case, the edge
+      // was simply added at the end of the graph's edge array, so just return that index)
+
+
+      if (changedEdges.length === 0) {
+        changedEdges.push(this.edgeCount - 1);
+      }
+
+      return [changedNodes, changedEdges];
     }
     /**
      * Splits any edges that contain the specified node in their interiors
-     * @param {number} index - the position of the new node
+     * @param {number} targetIndex - the index of the node to split along
      * @return {number[]} - the indices of any newly created (or modified) edges
      */
 
   }, {
-    key: "splitEdgesAlong",
-    value: function splitEdgesAlong(nodeIndex) {
+    key: "splitEdgesAtNode",
+    value: function splitEdgesAtNode(targetIndex) {
       var _this = this;
 
       var changedEdges = [];
-      this.edges.forEach(function (edge, edgeIndex) {
-        var onEdge = (0, _geometry.isOnLineSegment)(_this.nodes[edge[0]], _this.nodes[edge[1]], _this.nodes[nodeIndex]);
+      this.edges.forEach(function (edge, index) {
+        var onEdge = (0, _geometry.isOnLineSegment)(_this.nodes[edge[0]], _this.nodes[edge[1]], _this.nodes[targetIndex]);
 
         if (onEdge) {
           // Create the two new edges
-          var childEdgeA = [edge[0], nodeIndex];
-          var childEdgeB = [edge[1], nodeIndex]; // Put one of them in the place of the old, un-split edge and the other 
-          // at the end of the array
+          var childEdgeA = [edge[0], targetIndex];
+          var childEdgeB = [edge[1], targetIndex]; // Put one of the new edges in the slot that was previously occupied by the old, 
+          // un-split edge and the other at the end of the array - the prior is done so that 
+          // we don't have to worry about the rest of the edges being "shuffled" as a result 
+          // of a standard array "remove" operation
 
-          _this.edges[edgeIndex] = childEdgeA;
+          _this.edges[index] = childEdgeA;
 
           _this.edges.push(childEdgeB);
 
-          changedEdges.push(edgeIndex, _this.edgeCount - 1);
+          changedEdges.push(index, _this.edgeCount - 1);
         }
       });
       return changedEdges;
     }
+    /**
+     * Splits any edges that intersect with the specified edge
+     * @param {number} targetIndex - the index of the edge to split along
+     * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of 
+     *		any newly created (or modified) vertices while the second contains the indices of any 
+     *		newly created (or modified) edges
+     */
+
+  }, {
+    key: "splitEdgesAlongEdge",
+    value: function splitEdgesAlongEdge(targetIndex) {
+      var _this2 = this;
+
+      var changedNodes = [];
+      var changedEdges = []; // An array containing all of the points of intersections
+
+      var intersections = [];
+      this.edges.forEach(function (edge, index) {
+        if (targetIndex !== index) {
+          // The point of intersection (or null if no intersection is found)
+          var intersection = (0, _geometry.calculateLineSegmentIntersection)(_this2.nodes[edge[0]], _this2.nodes[edge[1]], _this2.nodes[_this2.edges[targetIndex][0]], _this2.nodes[_this2.edges[targetIndex][1]]);
+
+          if (intersection) {
+            intersections.push(intersection); //console.log(`Found intersection between edge ${targetIndex} and edge ${index}`);
+          }
+        }
+      });
+      intersections.forEach(function (intersection) {
+        // Add a new node at the point of intersection, which returns a node index and a list 
+        // of all of the edge indices that changed as a result of the additional node
+        var _this2$addNode = _this2.addNode(intersection),
+            _this2$addNode2 = _slicedToArray(_this2$addNode, 2),
+            nodeIndex = _this2$addNode2[0],
+            edgeIndices = _this2$addNode2[1];
+
+        changedNodes.push(nodeIndex);
+        changedEdges = changedEdges.concat(edgeIndices);
+      });
+      return [changedNodes, changedEdges];
+    }
   }, {
     key: "deleteNode",
-    value: function deleteNode(index) {
-      // First, remove the vertex at the specified index
-      this.nodes.splice(index, 1); // Then, delete any edges that contain the removed vertex 
+    value: function deleteNode(targetIndex) {
+      // First, remove the node at the specified index
+      this.nodes.splice(targetIndex, 1); // Then, delete any edges that contain the removed vertex 
 
-      this.deleteEdgesWithVertex(index);
+      this.deleteEdgesWithVertex(targetIndex);
+      var changedNodes = [targetIndex];
       var changedEdges = []; // TODO: ...
 
-      return changedEdges;
+      return [changedNodes, changedEdges];
     }
   }, {
     key: "deleteEdgesWithNode",
-    value: function deleteEdgesWithNode(index) {
-      this.edges = this.edges.filter(function (e) {
-        return !e.includes(index);
+    value: function deleteEdgesWithNode(targetIndex) {
+      var edgesToDelete = this.edges.filter(function (edge) {
+        return edge.includes(targetIndex);
       });
     }
   }, {
@@ -285,6 +336,10 @@ var PlanarGraph = /*#__PURE__*/function () {
     get: function get() {
       return this.nodes.length;
     }
+    /**
+     * @return {number} - the number of edges in the planar graph
+     */
+
   }, {
     key: "edgeCount",
     get: function get() {
@@ -401,7 +456,7 @@ var tools = {
   INCENTER: 'incenter',
   PERPENDICULAR: 'perpendicular'
 };
-var selectionGroups = {
+var selection = {
   'line-segment': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 2)]),
   'line': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 2)]),
   'incenter': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 3)]),
@@ -445,7 +500,7 @@ function animateCycle(element, attrName, percent) {
 
 
 function animateSelectableObjects() {
-  var className = selectionGroups[tool].currentGroup.className;
+  var className = selection[tool].currentGroup.className;
   var elements = s.selectAll('.' + className);
 
   switch (className) {
@@ -473,11 +528,11 @@ function removeSelectedClass() {
 function operate() {
   if (tool === tools.LINE_SEGMENT) {
     // Add a crease between the two selected vertices
-    var vertices = selectionGroups[tool].groups[0].refs;
+    var vertices = selection[tool].groups[0].refs;
     addCrease(new _math.Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy), new _math.Vec2(vertices[1].getBBox().cx, vertices[1].getBBox().cy));
   } else if (tool === tools.LINE) {} else if (tool === tools.INCENTER) {
     // Create 3 new creases that join each of the 3 points to their incenter
-    var _vertices = selectionGroups[tool].groups[0].refs;
+    var _vertices = selection[tool].groups[0].refs;
     var incenter = (0, _geometry.calculateTriangleIncenter)(new _math.Vec2(_vertices[0].getBBox().cx, _vertices[0].getBBox().cy), new _math.Vec2(_vertices[1].getBBox().cx, _vertices[1].getBBox().cy), new _math.Vec2(_vertices[2].getBBox().cx, _vertices[2].getBBox().cy));
 
     _vertices.forEach(function (v) {
@@ -485,8 +540,8 @@ function operate() {
     });
   } else if (tool === tools.PERPENDICULAR) {
     // Drop a perpendicular from the specified vertex to the specified crease
-    var _vertices2 = selectionGroups[tool].groups[0].refs;
-    var creases = selectionGroups[tool].groups[1].refs;
+    var _vertices2 = selection[tool].groups[0].refs;
+    var creases = selection[tool].groups[1].refs;
     var perp = (0, _geometry.calculatePerpendicular)(new _math.Vec2(creases[0].attr().x1, creases[0].attr().y1), new _math.Vec2(creases[0].attr().x2, creases[0].attr().y2), new _math.Vec2(_vertices2[0].getBBox().cx, _vertices2[0].getBBox().cy));
     addCrease(new _math.Vec2(_vertices2[0].getBBox().cx, _vertices2[0].getBBox().cy), perp);
   }
@@ -497,10 +552,10 @@ function operate() {
 
 
 function checkSelectionStatus() {
-  if (selectionGroups[tool].isComplete) {
+  if (selection[tool].isComplete) {
     operate(); // Clear the selection group and deselect all SVG elements
 
-    selectionGroups[tool].clear();
+    selection[tool].clear();
     removeSelectedClass();
     animateSelectableObjects();
   }
@@ -527,10 +582,10 @@ function cycleCreaseAssignmet(element) {
 
 
 var callbackClickSelectable = function callbackClickSelectable() {
-  var _selectionGroups$tool = selectionGroups[tool].maybeAdd(this),
-      _selectionGroups$tool2 = _slicedToArray(_selectionGroups$tool, 2),
-      didAdd = _selectionGroups$tool2[0],
-      didAdvance = _selectionGroups$tool2[1];
+  var _selection$tool$maybe = selection[tool].maybeAdd(this),
+      _selection$tool$maybe2 = _slicedToArray(_selection$tool$maybe, 2),
+      didAdd = _selection$tool$maybe2[0],
+      didAdvance = _selection$tool$maybe2[1];
 
   if (didAdd) {
     this.addClass('selected');
@@ -541,7 +596,8 @@ var callbackClickSelectable = function callbackClickSelectable() {
   }
 
   checkSelectionStatus();
-};
+}; // Additional crease callback functions
+
 
 var callbackCreaseDoubleClicked = function callbackCreaseDoubleClicked() {
   cycleCreaseAssignmet(this);
@@ -578,9 +634,9 @@ function removeElementWithIndex(selector, index) {
   return false;
 }
 /**
- * Attempts to add a new edge to the planar graph
- * @param {Vec2} a - the first endpoint of the edge
- * @param {Vec2} b - the second endpoint of the edge	
+ * Adds a new crease to the paper, modifying the underlying planar graph as necessary
+ * @param {Vec2} a - the coordinates of the first endpoint of the crease
+ * @param {Vec2} b - the coordinates of the second endpoint of the crease	
  */
 
 
@@ -591,11 +647,20 @@ function addCrease(a, b) {
     return;
   }
 
-  var index0 = addVertex(a);
-  var index1 = addVertex(b);
-  var edgeIndex = g.addEdge(index0, index1);
-  drawCrease(edgeIndex);
-  return edgeIndex;
+  var indexA = addVertex(a);
+  var indexB = addVertex(b);
+
+  var _g$addEdge = g.addEdge(indexA, indexB),
+      _g$addEdge2 = _slicedToArray(_g$addEdge, 2),
+      nodeIndices = _g$addEdge2[0],
+      edgeIndices = _g$addEdge2[1];
+
+  nodeIndices.forEach(function (index) {
+    return drawVertex(index);
+  });
+  edgeIndices.forEach(function (index) {
+    return drawCrease(index);
+  }); // return edgeIndex? - see `addVertex`
 }
 /**
  * Draws a virtual crease (i.e. an SVG line segment)
@@ -625,8 +690,8 @@ function drawCrease(index) {
   }
 }
 /**
- * Attempts to add a new node to the planar graph
- * @param {Vec2} p - the position of the node
+ * Adds a new vertex (reference point) to the paper, modifying the underlying planar graph as necessary
+ * @param {Vec2} p - the coordinates of the vertex
  */
 
 
@@ -635,14 +700,12 @@ function addVertex(p) {
   var _g$addNode = g.addNode(p),
       _g$addNode2 = _slicedToArray(_g$addNode, 2),
       nodeIndex = _g$addNode2[0],
-      edgeIndices = _g$addNode2[1]; // Draw the vertex
+      edgeIndices = _g$addNode2[1]; // Draw the vertex and redraw any creases that may have changed as a result of the addition
 
 
-  drawVertex(nodeIndex); // Draw any changed creases
-
+  drawVertex(nodeIndex);
   edgeIndices.forEach(function (index) {
-    drawCrease(index);
-    console.log("Changed edge ".concat(index));
+    return drawCrease(index);
   });
   return nodeIndex;
 }
@@ -719,7 +782,7 @@ toolIcons.forEach(function (element) {
 
     tool = this.getAttribute('op');
     console.log("Switched to tool: ".concat(tool));
-    selectionGroups[tool].clear();
+    selection[tool].clear();
     animateSelectableObjects();
   });
 });
