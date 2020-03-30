@@ -96,3 +96,28 @@ export function findClosestTo(t, ps) {
 export function closeTo(a, b, eps=0.001) {
 	return Math.abs(a.distance(b)) < eps;
 }
+
+export function getLineEquation(a, b) {
+	const slope = (b.y - a.y) / (b.x - a.x);
+	const intercept = a.y - slope * a.x;
+	return [slope, intercept];
+}
+
+export function calculateLineIntersection(a, b, c, d, eps=0.001) {
+	const determinant = (d.y - c.y) * (b.x - a.x) - (d.x - c.x) * (b.y - a.y);
+    
+    if (Math.abs(determinant) > eps) {
+       	const uA = ((d.x - c.x) * (a.y - c.y) - (d.y - c.y) * (a.x - c.x)) / determinant;
+        const uB = ((b.x - a.x) * (a.y - c.y) - (b.y - a.y) * (a.x - c.x)) / determinant;
+
+        if (!(0 <= uA <= 1 && 0 <= uB <= 1)) {
+        	return null;
+        }
+
+		const x = a.x + uA * (b.x - a.x);
+		const y = a.y + uA * (b.y - a.y);
+
+		return new Vec2(x, y);
+    } 
+    return null;
+}

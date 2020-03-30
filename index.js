@@ -88,6 +88,19 @@ function removeSelectedClass() {
 	s.selectAll('*').forEach(element => element.removeClass('selected'));
 }
 
+function getBBoxCorners(element) {
+	const ul = new Vec2(element.getBBox().cx - element.getBBox().width * 0.5,
+						element.getBBox().cy - element.getBBox().height * 0.5);
+	const ur = new Vec2(element.getBBox().cx + element.getBBox().width * 0.5,
+						element.getBBox().cy - element.getBBox().height * 0.5);
+	const lr = new Vec2(element.getBBox().cx + element.getBBox().width * 0.5,
+						element.getBBox().cy + element.getBBox().height * 0.5);
+	const ll = new Vec2(element.getBBox().cx - element.getBBox().width * 0.5,
+						element.getBBox().cy + element.getBBox().height * 0.5);
+
+	return [ul, ur, lr, ll];
+}
+
 function operate() {
 	if (tool === tools.LINE_SEGMENT) {
 		// Add a crease between the two selected vertices
@@ -96,6 +109,37 @@ function operate() {
 				  new Vec2(vertices[1].getBBox().cx, vertices[1].getBBox().cy));
 
 	} else if (tool === tools.LINE) {
+
+		// Grab the SVG paper element and calculate its corners
+		const paper = s.select('.paper');
+		const [ul, ur, lr, ll] = getBBoxCorners(paper);
+		const rawEdges = [
+			[ul, ur],
+			[ur, lr],
+			[lr, ll],
+			[ll, ul]
+		];
+
+		const vertices = selection[tool].groups[0].refs;
+
+		// Find all of the points where this line intersects the paper's edges (there should only be 2)
+		let intersections = []; 
+		rawEdges.forEach(rawEdge => {
+			const intersection = geom.calculateLineIntersection(rawEdge[0], 
+													   		    rawEdge[1],
+													   		    new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy),
+													   		    new Vec2(vertices[1].getBBox().cx, vertices[1].getBBox().cy));
+			if (intersection !== null) {
+				intersections.push(intersection);
+			}
+		});
+
+		// Filter out intersections that lie outside the paper's boundary
+		intersections = intersections.filter(intersection => Snap.path.isPointInsideBBox(paper.getBBox(), intersection.x, intersection.y));
+		console.assert(intersections.length === 2);
+
+		// Add a crease that runs from intersection to intersection
+		addCrease(intersections[0], intersections[1]);	
 
 	} else if (tool === tools.INCENTER) {
 		// Create 3 new creases that join each of the 3 points to their incenter
@@ -283,19 +327,40 @@ function drawVertex(index) {
 	svg.append(Snap.parse(`<title>Vertex: ${index}</title>`));
 }
 
-function drawGridPoint(x, y) {
-	let svg = s.circle(x, y, gridPointDrawRadius);
-	svg.addClass('vertex');
-	svg.click(callbackClickSelectable);
+function drawTooltip(x, y, text, padding) {
+	// First, create the text element
+	let svgEscText = s.text(x, y, text);
+
+	svgEscText.attr({
+		fontFamily: 'Sans-Serif',
+		fontSize: '22px'
+	})
+	svgEscText.addClass('tool-tip');
+
+	// Create the rectangular background behind the text
+	let svgEscBackground = s.rect(svgEscText.getBBox().x - padding * 0.5, 
+								  svgEscText.getBBox().y - padding * 0.5, 
+								  svgEscText.getBBox().width + padding, 
+								  svgEscText.getBBox().height + padding);
+	svgEscBackground.attr({
+		rx: '2px',
+		ry: '2px'
+	});
+	svgEscBackground.addClass('tool-tip-background');
+
+    svgEscBackground.insertBefore(svgEscText);
 }
 
-function drawGrid() {
+function setupCanvas() {
 	const gridSizeX = w / 2;
 	const gridSizeY = h / 2;
 	const paperCenterX = gridSizeX;
 	const paperCenterY = gridSizeY; 
-	const paperPadX = gridSizeX / (gridDivsX - 1);
-	const paperPadY = gridSizeY / (gridDivsY - 1);
+	
+	// TODO: this is done so that when we calculate line intersections with the raw edges
+	// of the paper, we can rule out intersection points that lie outside of the paper 
+	const paperPadX = 0.5; // gridSizeX / (gridDivsX - 1);
+	const paperPadY = 0.5; // gridSizeY / (gridDivsY - 1);
 
 	let svgBackgroud = s.rect(0, 0, w, h);
 	svgBackgroud.addClass('background');
@@ -312,9 +377,14 @@ function drawGrid() {
 			let percentY = y / (gridDivsY - 1);
 			let posX = percentX * gridSizeX + paperCenterX / 2;
 			let posY = percentY * gridSizeY + paperCenterY / 2;
-			drawGridPoint(posX, posY);
+			
+			let svgGridPoint = s.circle(posX, posY, gridPointDrawRadius);
+			svgGridPoint.addClass('vertex');
+			svgGridPoint.click(callbackClickSelectable);
 		}
 	}
+
+	drawTooltip(40, 40, 'esc', 10);
 }
 
 // Add event listeners to tool icons
@@ -364,5 +434,5 @@ document.addEventListener('keydown', function(event) {
 });
 
 // Start the application
-drawGrid();
+setupCanvas();
 

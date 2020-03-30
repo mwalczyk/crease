@@ -117,25 +117,62 @@ function removeSelectedClass() {
   });
 }
 
+function getBBoxCorners(element) {
+  var ul = new _math.Vec2(element.getBBox().cx - element.getBBox().width * 0.5, element.getBBox().cy - element.getBBox().height * 0.5);
+  var ur = new _math.Vec2(element.getBBox().cx + element.getBBox().width * 0.5, element.getBBox().cy - element.getBBox().height * 0.5);
+  var lr = new _math.Vec2(element.getBBox().cx + element.getBBox().width * 0.5, element.getBBox().cy + element.getBBox().height * 0.5);
+  var ll = new _math.Vec2(element.getBBox().cx - element.getBBox().width * 0.5, element.getBBox().cy + element.getBBox().height * 0.5);
+  return [ul, ur, lr, ll];
+}
+
 function operate() {
   if (tool === tools.LINE_SEGMENT) {
     // Add a crease between the two selected vertices
     var vertices = selection[tool].groups[0].refs;
     addCrease(new _math.Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy), new _math.Vec2(vertices[1].getBBox().cx, vertices[1].getBBox().cy));
-  } else if (tool === tools.LINE) {} else if (tool === tools.INCENTER) {
-    // Create 3 new creases that join each of the 3 points to their incenter
-    var _vertices = selection[tool].groups[0].refs;
-    var incenter = geom.calculateTriangleIncenter(new _math.Vec2(_vertices[0].getBBox().cx, _vertices[0].getBBox().cy), new _math.Vec2(_vertices[1].getBBox().cx, _vertices[1].getBBox().cy), new _math.Vec2(_vertices[2].getBBox().cx, _vertices[2].getBBox().cy));
+  } else if (tool === tools.LINE) {
+    // Grab the SVG paper element and calculate its corners
+    var paper = s.select('.paper');
 
-    _vertices.forEach(function (v) {
+    var _getBBoxCorners = getBBoxCorners(paper),
+        _getBBoxCorners2 = _slicedToArray(_getBBoxCorners, 4),
+        ul = _getBBoxCorners2[0],
+        ur = _getBBoxCorners2[1],
+        lr = _getBBoxCorners2[2],
+        ll = _getBBoxCorners2[3];
+
+    var rawEdges = [[ul, ur], [ur, lr], [lr, ll], [ll, ul]];
+    var _vertices = selection[tool].groups[0].refs; // Find all of the points where this line intersects the paper's edges (there should only be 2)
+
+    var intersections = [];
+    rawEdges.forEach(function (rawEdge) {
+      var intersection = geom.calculateLineIntersection(rawEdge[0], rawEdge[1], new _math.Vec2(_vertices[0].getBBox().cx, _vertices[0].getBBox().cy), new _math.Vec2(_vertices[1].getBBox().cx, _vertices[1].getBBox().cy));
+
+      if (intersection !== null) {
+        intersections.push(intersection);
+      }
+    }); // Filter out intersections that lie outside the paper's boundary
+
+    intersections = intersections.filter(function (intersection) {
+      return Snap.path.isPointInsideBBox(paper.getBBox(), intersection.x, intersection.y);
+    });
+    console.assert(intersections.length === 2); // Add a crease that runs from intersection to intersection
+
+    addCrease(intersections[0], intersections[1]);
+  } else if (tool === tools.INCENTER) {
+    // Create 3 new creases that join each of the 3 points to their incenter
+    var _vertices2 = selection[tool].groups[0].refs;
+    var incenter = geom.calculateTriangleIncenter(new _math.Vec2(_vertices2[0].getBBox().cx, _vertices2[0].getBBox().cy), new _math.Vec2(_vertices2[1].getBBox().cx, _vertices2[1].getBBox().cy), new _math.Vec2(_vertices2[2].getBBox().cx, _vertices2[2].getBBox().cy));
+
+    _vertices2.forEach(function (v) {
       return addCrease(new _math.Vec2(v.getBBox().cx, v.getBBox().cy), incenter);
     });
   } else if (tool === tools.PERPENDICULAR) {
     // Drop a perpendicular from the specified vertex to the specified crease
-    var _vertices2 = selection[tool].groups[0].refs;
+    var _vertices3 = selection[tool].groups[0].refs;
     var creases = selection[tool].groups[1].refs;
-    var perp = geom.calculatePerpendicular(new _math.Vec2(creases[0].attr().x1, creases[0].attr().y1), new _math.Vec2(creases[0].attr().x2, creases[0].attr().y2), new _math.Vec2(_vertices2[0].getBBox().cx, _vertices2[0].getBBox().cy));
-    addCrease(new _math.Vec2(_vertices2[0].getBBox().cx, _vertices2[0].getBBox().cy), perp);
+    var perp = geom.calculatePerpendicular(new _math.Vec2(creases[0].attr().x1, creases[0].attr().y1), new _math.Vec2(creases[0].attr().x2, creases[0].attr().y2), new _math.Vec2(_vertices3[0].getBBox().cx, _vertices3[0].getBBox().cy));
+    addCrease(new _math.Vec2(_vertices3[0].getBBox().cx, _vertices3[0].getBBox().cy), perp);
   }
 }
 /**
@@ -324,19 +361,35 @@ function drawVertex(index) {
   svg.append(Snap.parse("<title>Vertex: ".concat(index, "</title>")));
 }
 
-function drawGridPoint(x, y) {
-  var svg = s.circle(x, y, gridPointDrawRadius);
-  svg.addClass('vertex');
-  svg.click(callbackClickSelectable);
+function drawTooltip(x, y, text, padding) {
+  // First, create the text element
+  var svgEscText = s.text(x, y, text);
+  svgEscText.attr({
+    fontFamily: 'Sans-Serif',
+    fontSize: '22px'
+  });
+  svgEscText.addClass('tool-tip'); // Create the rectangular background behind the text
+
+  var svgEscBackground = s.rect(svgEscText.getBBox().x - padding * 0.5, svgEscText.getBBox().y - padding * 0.5, svgEscText.getBBox().width + padding, svgEscText.getBBox().height + padding);
+  svgEscBackground.attr({
+    rx: '2px',
+    ry: '2px'
+  });
+  svgEscBackground.addClass('tool-tip-background');
+  svgEscBackground.insertBefore(svgEscText);
 }
 
-function drawGrid() {
+function setupCanvas() {
   var gridSizeX = w / 2;
   var gridSizeY = h / 2;
   var paperCenterX = gridSizeX;
-  var paperCenterY = gridSizeY;
-  var paperPadX = gridSizeX / (gridDivsX - 1);
-  var paperPadY = gridSizeY / (gridDivsY - 1);
+  var paperCenterY = gridSizeY; // TODO: this is done so that when we calculate line intersections with the raw edges
+  // of the paper, we can rule out intersection points that lie outside of the paper 
+
+  var paperPadX = 0.5; // gridSizeX / (gridDivsX - 1);
+
+  var paperPadY = 0.5; // gridSizeY / (gridDivsY - 1);
+
   var svgBackgroud = s.rect(0, 0, w, h);
   svgBackgroud.addClass('background');
   var svgPaper = s.rect(paperCenterX - gridSizeX * 0.5 - paperPadX * 0.5, paperCenterY - gridSizeY * 0.5 - paperPadY * 0.5, gridSizeX + paperPadX, gridSizeY + paperPadY);
@@ -348,9 +401,13 @@ function drawGrid() {
       var percentY = y / (gridDivsY - 1);
       var posX = percentX * gridSizeX + paperCenterX / 2;
       var posY = percentY * gridSizeY + paperCenterY / 2;
-      drawGridPoint(posX, posY);
+      var svgGridPoint = s.circle(posX, posY, gridPointDrawRadius);
+      svgGridPoint.addClass('vertex');
+      svgGridPoint.click(callbackClickSelectable);
     }
   }
+
+  drawTooltip(40, 40, 'esc', 10);
 } // Add event listeners to tool icons
 
 
@@ -399,7 +456,7 @@ document.addEventListener('keydown', function (event) {
   }
 }); // Start the application
 
-drawGrid();
+setupCanvas();
 
 },{"./src/geometry.js":4,"./src/graph.js":5,"./src/math.js":6,"./src/selection.js":7,"snapsvg":3}],2:[function(require,module,exports){
 // Copyright (c) 2017 Adobe Systems Incorporated. All rights reserved.
@@ -9481,6 +9538,8 @@ exports.calculatePerpendicular = calculatePerpendicular;
 exports.isOnLineSegment = isOnLineSegment;
 exports.findClosestTo = findClosestTo;
 exports.closeTo = closeTo;
+exports.getLineEquation = getLineEquation;
+exports.calculateLineIntersection = calculateLineIntersection;
 
 var _math = require("./math.js");
 
@@ -9583,6 +9642,32 @@ function findClosestTo(t, ps) {
 function closeTo(a, b) {
   var eps = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0.001;
   return Math.abs(a.distance(b)) < eps;
+}
+
+function getLineEquation(a, b) {
+  var slope = (b.y - a.y) / (b.x - a.x);
+  var intercept = a.y - slope * a.x;
+  return [slope, intercept];
+}
+
+function calculateLineIntersection(a, b, c, d) {
+  var eps = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 0.001;
+  var determinant = (d.y - c.y) * (b.x - a.x) - (d.x - c.x) * (b.y - a.y);
+
+  if (Math.abs(determinant) > eps) {
+    var uA = ((d.x - c.x) * (a.y - c.y) - (d.y - c.y) * (a.x - c.x)) / determinant;
+    var uB = ((b.x - a.x) * (a.y - c.y) - (b.y - a.y) * (a.x - c.x)) / determinant;
+
+    if (!(0 <= uA <= 1 && 0 <= uB <= 1)) {
+      return null;
+    }
+
+    var x = a.x + uA * (b.x - a.x);
+    var y = a.y + uA * (b.y - a.y);
+    return new _math.Vec2(x, y);
+  }
+
+  return null;
 }
 
 },{"./math.js":6}],5:[function(require,module,exports){

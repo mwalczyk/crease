@@ -8,7 +8,7 @@ html, body {
 
 .container.tool-icons {
 	flex-direction: column;
-	transform: scale(0.75);
+	transform: scale(0.5);
 }
 
 .item {
@@ -27,6 +27,16 @@ html, body {
 
 #controls {
 	background-color: hsl(0, 0%, 22%);
+}
+
+svg .tool-tip {
+	font-size: 22px;
+	font-family: sans-serif;
+	fill: hsl(0, 0%, 89%);
+}
+
+svg .tool-tip-background {
+	fill: hsl(26, 100%, 70%);
 }
 
 svg .background {
