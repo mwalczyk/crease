@@ -27,10 +27,10 @@ function _iterableToArrayLimit(arr, i) { if (typeof Symbol === "undefined" || !(
 
 function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 
-var snapsvg = require('snapsvg'); // An embedding of a planar graph, representing the crease pattern
+var snapsvg = require('snapsvg'); // Create a planar graph, which represents the crease pattern
 
 
-var g = new _graph.PlanarGraph(); // Create the `Element` object that will house all of the other SVGs
+var g = new _graph.PlanarGraph(); // Create the parent SVG element
 
 console.log('Starting application...');
 var s = Snap('#svg');
@@ -70,19 +70,18 @@ var creaseStrokeWidth = 4;
  * @param {number} timeFrom - the duration of the return animation
  */
 
-function animateCycle(element, attrName, percent) {
-  var timeTo = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 200;
+function animateCycle(element, attrName, to) {
+  var timeTo = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 50;
   var timeFrom = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 50;
-  var to = element.attr(attrName) * percent;
   var from = element.attr(attrName);
   var anims = [function () {
     Snap.animate(from, to, function (val) {
       element.attr(attrName, val);
-    }, timeTo, mina.elastic, anims[1]);
+    }, timeTo, mina.easein, anims[1]);
   }, function () {
     Snap.animate(to, from, function (val) {
       element.attr(attrName, val);
-    }, timeFrom, mina.bounce);
+    }, timeFrom, mina.easeout);
   }];
   anims[0]();
 }
@@ -91,24 +90,30 @@ function animateCycle(element, attrName, percent) {
  */
 
 
-function animateSelectableObjects() {
-  var className = selection[tool].currentGroup.className;
-  var elements = s.selectAll('.' + className);
-
-  switch (className) {
-    case 'vertex':
-      elements.forEach(function (el) {
-        return animateCycle(el, 'r', 1.2);
-      });
-      break;
-
-    case 'crease':
-      // TODO: this isn't working for some reason?
-      elements.forEach(function (el) {
-        return animateCycle(el, 'stroke-width', 4.2);
-      });
-      break;
-  }
+function animateSelectableObjects() {// const className = selection[tool].currentGroup.className;
+  // const elements = s.selectAll('.' + className);
+  // s.selectAll('*').forEach(element => element.removeClass('selectable'));
+  // elements.forEach(element => element.addClass('selectable'));
+  // const timeTo = 50;
+  // const timeFrom = 50;
+  // switch (className) {
+  // 	case 'vertex':
+  // 		elements.forEach(el => animateCycle(el, 'r', 5.0));
+  // 		break;
+  // 	case 'crease':
+  // 		elements.forEach(element => {
+  // 			let anims = [
+  // 				function() {
+  // 					Snap.animate(4, 8, function(val) { element.attr({strokeWidth: val});  }, timeTo, mina.easein, anims[1]); 
+  // 				},
+  // 				function() {
+  // 					Snap.animate(8, 4, function(val) { element.attr({strokeWidth: val}); }, timeFrom, mina.easeout);
+  // 				}
+  // 			];
+  // 			anims[0]();	
+  // 		});
+  // 		break;
+  // }	
 }
 
 function removeSelectedClass() {
@@ -164,9 +169,13 @@ function operate() {
     var _vertices2 = selection[tool].groups[0].refs;
     var incenter = geom.calculateTriangleIncenter(new _math.Vec2(_vertices2[0].getBBox().cx, _vertices2[0].getBBox().cy), new _math.Vec2(_vertices2[1].getBBox().cx, _vertices2[1].getBBox().cy), new _math.Vec2(_vertices2[2].getBBox().cx, _vertices2[2].getBBox().cy));
 
-    _vertices2.forEach(function (v) {
-      return addCrease(new _math.Vec2(v.getBBox().cx, v.getBBox().cy), incenter);
-    });
+    if (!incenter) {
+      console.log('Triangle is degenerate - no new creases will be added');
+    } else {
+      _vertices2.forEach(function (v) {
+        return addCrease(new _math.Vec2(v.getBBox().cx, v.getBBox().cy), incenter);
+      });
+    }
   } else if (tool === tools.PERPENDICULAR) {
     // Drop a perpendicular from the specified vertex to the specified crease
     var _vertices3 = selection[tool].groups[0].refs;
@@ -205,13 +214,13 @@ function cycleCreaseAssignmet(element) {
     element.removeClass(creaseAssignment.BORDER);
     element.addClass(creaseAssignment.MOUNTAIN);
   } else {
-    // No assignment: set to border
-    element.addClass(creaseAssignment.BORDER);
+    // No assignment: set to M
+    element.addClass(creaseAssignment.MOUNTAIN);
   }
 } // Callback function used by all selectable objects
 
 
-var callbackClickSelectable = function callbackClickSelectable() {
+var callbackClickSelectable = function callbackClickSelectable(e) {
   var _selection$tool$maybe = selection[tool].maybeAdd(this),
       _selection$tool$maybe2 = _slicedToArray(_selection$tool$maybe, 2),
       didAdd = _selection$tool$maybe2[0],
@@ -243,6 +252,18 @@ var callbackVertexHoverEnter = function callbackVertexHoverEnter() {
 var callbackVertexHoverExit = function callbackVertexHoverExit() {
   this.attr({
     'r': vertexDrawRadius * 1.00
+  });
+};
+
+var callbackCreaseHoverEnter = function callbackCreaseHoverEnter() {
+  this.attr({
+    strokeWidth: 8
+  });
+};
+
+var callbackCreaseHoverExit = function callbackCreaseHoverExit() {
+  this.attr({
+    strokeWidth: 4
   });
 };
 
@@ -310,13 +331,15 @@ function drawCrease(index) {
   svg.addClass('crease');
   svg.data('index', index);
   svg.click(callbackClickSelectable);
-  svg.dblclick(callbackCreaseDoubleClicked);
-  svg.append(Snap.parse("<title>Edge: ".concat(index, "</title>"))); // TODO: does Snap support z-ordering at all?
+  svg.hover(callbackCreaseHoverEnter, callbackCreaseHoverExit);
+  svg.append(Snap.parse("<title>Edge: ".concat(index, "</title>"))); // Add a "right-click" event listener
+
+  svg.node.addEventListener('contextmenu', callbackCreaseDoubleClicked.bind(svg)); // TODO: does Snap support z-ordering at all?
 
   var existingSVGvertices = s.selectAll('.vertex');
 
   if (existingSVGvertices.length > 0) {
-    svg.insertAfter(existingSVGvertices[0]);
+    svg.insertBefore(existingSVGvertices[0]);
   }
 }
 /**
@@ -9532,6 +9555,7 @@ return Snap;
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.isDegenerateTriangle = isDegenerateTriangle;
 exports.calculateTriangleIncenter = calculateTriangleIncenter;
 exports.calculateLineSegmentIntersection = calculateLineSegmentIntersection;
 exports.calculatePerpendicular = calculatePerpendicular;
@@ -9544,12 +9568,38 @@ exports.calculateLineIntersection = calculateLineIntersection;
 var _math = require("./math.js");
 
 /**
+ * Determines whether a triangle is degenerate (i.e. has one or more sides with length 0)
+ * @param {Vec2} a - the first point
+ * @param {Vec2} b - the second point
+ * @param {Vec2} c - the third point
+ * @return {boolean} - whether or not the specified triangle is degenerate
+ */
+function isDegenerateTriangle(a, b, c) {
+  var eps = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 0.001;
+  var A = b.distance(c);
+  var B = a.distance(c);
+  var C = a.distance(b);
+
+  if (Math.abs(A) < eps || Math.abs(B) < eps || Math.abs(C) < eps) {
+    return true;
+  }
+
+  return false;
+}
+/**
  * Calculates the incenter of the triangle formed by 3 points
  * @param {Vec2} a - the first point
  * @param {Vec2} b - the second point
  * @param {Vec2} c - the third point
+ * @return {Vec2} - the incenter of the triangle or null if the triangle is degenerate
  */
+
+
 function calculateTriangleIncenter(a, b, c) {
+  if (isDegenerateTriangle(a, b, c)) {
+    return null;
+  }
+
   var A = b.distance(c);
   var B = a.distance(c);
   var C = a.distance(b);
@@ -9563,6 +9613,7 @@ function calculateTriangleIncenter(a, b, c) {
  * @param {Vec2} b - the end of the first line segment
  * @param {Vec2} c - the start of the second line segment
  * @param {Vec2} d - the end of the second line segment
+ * @return {Vec2} - the point of intersection or null if no intersection is found
  */
 
 
@@ -10095,6 +10146,7 @@ var OrderedSelection = /*#__PURE__*/function () {
 
     this.groups = groups;
     this.currentIndex = 0;
+    this.help = help;
   }
 
   _createClass(OrderedSelection, [{

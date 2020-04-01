@@ -1,12 +1,33 @@
 import { Vec2 } from './math.js';
 
 /**
+ * Determines whether a triangle is degenerate (i.e. has one or more sides with length 0)
+ * @param {Vec2} a - the first point
+ * @param {Vec2} b - the second point
+ * @param {Vec2} c - the third point
+ * @return {boolean} - whether or not the specified triangle is degenerate
+ */
+export function isDegenerateTriangle(a, b, c, eps=0.001) {
+	const A = b.distance(c);
+	const B = a.distance(c);
+	const C = a.distance(b);
+	if (Math.abs(A) < eps || Math.abs(B) < eps || Math.abs(C) < eps) {
+		return true;
+	}
+	return false;
+}
+
+/**
  * Calculates the incenter of the triangle formed by 3 points
  * @param {Vec2} a - the first point
  * @param {Vec2} b - the second point
  * @param {Vec2} c - the third point
+ * @return {Vec2} - the incenter of the triangle or null if the triangle is degenerate
  */
 export function calculateTriangleIncenter(a, b, c) {
+	if (isDegenerateTriangle(a, b, c)) {
+		return null;
+	}
 	const A = b.distance(c);
 	const B = a.distance(c);
 	const C = a.distance(b);
@@ -22,6 +43,7 @@ export function calculateTriangleIncenter(a, b, c) {
  * @param {Vec2} b - the end of the first line segment
  * @param {Vec2} c - the start of the second line segment
  * @param {Vec2} d - the end of the second line segment
+ * @return {Vec2} - the point of intersection or null if no intersection is found
  */
 export function calculateLineSegmentIntersection(a, b, c, d) {
 	const deltaX0 = b.x - a.x;  

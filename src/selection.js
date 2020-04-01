@@ -39,6 +39,7 @@ export class OrderedSelection {
 	constructor(groups, help='') {
 		this.groups = groups;
 		this.currentIndex = 0;
+		this.help = help;
 	}
 
 	maybeAdd(element) {

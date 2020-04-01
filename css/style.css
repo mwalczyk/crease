@@ -48,7 +48,7 @@ svg .paper {
 }
 
 svg .vertex {
-	fill: hsl(221, 12%, 60%);
+	fill: hsl(221, 12%, 60%);	
 }
 
 svg .vertex:hover {
@@ -65,12 +65,13 @@ svg .vertex.selected:hover {
 
 svg .crease {
 	stroke: hsl(240, 10%, 70%);
-	stroke-width: 4;
 	stroke-linecap: round;
+	stroke-width: 4;
 }
 
 svg .crease:hover {
 	stroke-width: 6;
+	fill: hsl(26, 100%, 60%);
 }
 
 svg .crease.valley {
@@ -88,11 +89,25 @@ svg .crease.mountain {
 }
 
 svg .crease.mountain:hover { 
-	stroke: stroke: hsl(359, 36%, 35%);
+	stroke: hsl(359, 36%, 35%);
 }
 
 svg .crease.selected {
 	stroke: hsl(48, 100%, 50%);
 }
 
+svg .selectable {
+	animation: hideshow 0.2s ease 1;
+}
 
+@keyframes hideshow {
+  0% { 
+  	opacity: 1; 
+  }
+  50% { 
+  	opacity: 0; 
+  }
+  100% { 
+  	opacity: 1; 
+  }
+} 

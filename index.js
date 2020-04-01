@@ -5,10 +5,10 @@ import { SelectionGroup, OrderedSelection } from './src/selection.js';
 
 const snapsvg = require('snapsvg');
 
-// An embedding of a planar graph, representing the crease pattern
+// Create a planar graph, which represents the crease pattern
 let g = new PlanarGraph();
 
-// Create the `Element` object that will house all of the other SVGs
+// Create the parent SVG element
 console.log('Starting application...');
 const s = Snap('#svg');
 const w = s.attr().width;
@@ -37,8 +37,8 @@ let selection = {
 
 // Configuration for application start
 let tool = tools.LINE_SEGMENT;
-let gridDivsX = 11;
-let gridDivsY = 11;
+const gridDivsX = 11;
+const gridDivsY = 11;
 const gridPointDrawRadius = 4;
 const vertexDrawRadius = 6;
 const creaseStrokeWidth = 4;
@@ -51,16 +51,15 @@ const creaseStrokeWidth = 4;
  * @param {number} timeTo - the duration of the target animation 
  * @param {number} timeFrom - the duration of the return animation
  */
-function animateCycle(element, attrName, percent, timeTo=200, timeFrom=50) {
-	const to = element.attr(attrName) * percent;
+function animateCycle(element, attrName, to, timeTo=50, timeFrom=50) {
 	const from = element.attr(attrName);
 
 	let anims = [
 		function() {
-			Snap.animate(from, to, function(val) { element.attr(attrName, val);  }, timeTo, mina.elastic, anims[1]); 
+			Snap.animate(from, to, function(val) { element.attr(attrName, val);  }, timeTo, mina.easein, anims[1]); 
 		},
 		function() {
-			Snap.animate(to, from, function(val) { element.attr(attrName, val); }, timeFrom, mina.bounce);
+			Snap.animate(to, from, function(val) { element.attr(attrName, val); }, timeFrom, mina.easeout);
 		}
 	];
 	anims[0]();		
@@ -70,18 +69,34 @@ function animateCycle(element, attrName, percent, timeTo=200, timeFrom=50) {
  * Animates the group of objects that are currently selectable
  */
 function animateSelectableObjects() {
-	const className = selection[tool].currentGroup.className;
-	const elements = s.selectAll('.' + className);
+	// const className = selection[tool].currentGroup.className;
+	// const elements = s.selectAll('.' + className);
 	
-	switch (className) {
-		case 'vertex':
-			elements.forEach(el => animateCycle(el, 'r', 1.2));
-			break;
-		case 'crease':
-			// TODO: this isn't working for some reason?
-			elements.forEach(el => animateCycle(el, 'stroke-width', 4.2));
-			break;
-	}	
+	// s.selectAll('*').forEach(element => element.removeClass('selectable'));
+	// elements.forEach(element => element.addClass('selectable'));
+
+	// const timeTo = 50;
+	// const timeFrom = 50;
+
+	// switch (className) {
+	// 	case 'vertex':
+	// 		elements.forEach(el => animateCycle(el, 'r', 5.0));
+	// 		break;
+	// 	case 'crease':
+			
+	// 		elements.forEach(element => {
+	// 			let anims = [
+	// 				function() {
+	// 					Snap.animate(4, 8, function(val) { element.attr({strokeWidth: val});  }, timeTo, mina.easein, anims[1]); 
+	// 				},
+	// 				function() {
+	// 					Snap.animate(8, 4, function(val) { element.attr({strokeWidth: val}); }, timeFrom, mina.easeout);
+	// 				}
+	// 			];
+	// 			anims[0]();	
+	// 		});
+	// 		break;
+	// }	
 }
 
 function removeSelectedClass() {
@@ -148,7 +163,11 @@ function operate() {
 												   		new Vec2(vertices[1].getBBox().cx, vertices[1].getBBox().cy), 
 												   		new Vec2(vertices[2].getBBox().cx, vertices[2].getBBox().cy));
 
-		vertices.forEach(v => addCrease(new Vec2(v.getBBox().cx, v.getBBox().cy), incenter));
+		if (!incenter) {
+			console.log('Triangle is degenerate - no new creases will be added');
+		} else {
+			vertices.forEach(v => addCrease(new Vec2(v.getBBox().cx, v.getBBox().cy), incenter));
+		}
 
 	} else if (tool === tools.PERPENDICULAR) {
 		// Drop a perpendicular from the specified vertex to the specified crease
@@ -193,13 +212,13 @@ function cycleCreaseAssignmet(element) {
 		element.removeClass(creaseAssignment.BORDER);
 		element.addClass(creaseAssignment.MOUNTAIN);
 	} else {
-		// No assignment: set to border
-		element.addClass(creaseAssignment.BORDER);
+		// No assignment: set to M
+		element.addClass(creaseAssignment.MOUNTAIN);
 	}
 }
 
 // Callback function used by all selectable objects
-let callbackClickSelectable = function() {
+let callbackClickSelectable = function(e) {
 	const [didAdd, didAdvance] = selection[tool].maybeAdd(this);
 	if (didAdd) {
 		this.addClass('selected');
@@ -221,6 +240,13 @@ let callbackVertexHoverEnter = function() {
 }
 let callbackVertexHoverExit = function() {
 	this.attr({'r': vertexDrawRadius * 1.00});
+}
+
+let callbackCreaseHoverEnter = function() {
+	this.attr({strokeWidth: 8});
+}
+let callbackCreaseHoverExit = function() {
+	this.attr({strokeWidth: 4});
 }
 
 function findElementWithIndex(selector, index) {
@@ -281,13 +307,16 @@ function drawCrease(index) {
 	svg.addClass('crease');
 	svg.data('index', index);
 	svg.click(callbackClickSelectable);
-	svg.dblclick(callbackCreaseDoubleClicked);
+	svg.hover(callbackCreaseHoverEnter, callbackCreaseHoverExit);
 	svg.append(Snap.parse(`<title>Edge: ${index}</title>`));
+
+	// Add a "right-click" event listener
+	svg.node.addEventListener('contextmenu', callbackCreaseDoubleClicked.bind(svg));
 
 	// TODO: does Snap support z-ordering at all?
 	const existingSVGvertices = s.selectAll('.vertex');
 	if (existingSVGvertices.length > 0) {
-		svg.insertAfter(existingSVGvertices[0]);
+		svg.insertBefore(existingSVGvertices[0]);
 	}
 }
 
