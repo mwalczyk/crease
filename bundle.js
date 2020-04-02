@@ -43,16 +43,29 @@ var creaseAssignment = {
   BORDER: 'border'
 };
 var tools = {
-  LINE_SEGMENT: 'line-segment',
+  SELECT: 'select',
   LINE: 'line',
+  LINE_SEGMENT: 'line-segment',
+  PERPENDICULAR: 'perpendicular',
   INCENTER: 'incenter',
-  PERPENDICULAR: 'perpendicular'
+  DELETE_VERTEX: 'delete-vertex',
+  DELETE_CREASE: 'delete-crease'
+};
+var helpMessages = {
+  SELECT: 'Select an existing vertex or crease',
+  LINE: 'Select two vertices to form an extended crease between them',
+  LINE_SEGMENT: 'Select two vertices to form a crease between them',
+  PERPENDICULAR: 'Select a vertex and a crease to form a perpendicular crease between them',
+  INCENTER: 'Select three vertices to form creases connecting each vertex to the incenter of the corresponding triangle'
 };
 var selection = {
-  'line-segment': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 2)]),
-  'line': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 2)]),
-  'incenter': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 3)]),
-  'perpendicular': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 1), new _selection.SelectionGroup('crease', 1)])
+  'select': null,
+  'line': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 2)], helpMessages.LINE),
+  'line-segment': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 2)], helpMessages.LINE_SEGMENT),
+  'perpendicular': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 1), new _selection.SelectionGroup('crease', 1)], helpMessages.PERPENDICULAR),
+  'incenter': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 3)], helpMessages.INCENTER),
+  'delete-vertex': null,
+  'delete-crease': null
 }; // Configuration for application start
 
 var tool = tools.LINE_SEGMENT;
@@ -90,7 +103,7 @@ function animateCycle(element, attrName, to) {
  */
 
 
-function animateSelectableObjects() {// const className = selection[tool].currentGroup.className;
+function notifySelectableElements() {// const className = selection[tool].currentGroup.className;
   // const elements = s.selectAll('.' + className);
   // s.selectAll('*').forEach(element => element.removeClass('selectable'));
   // elements.forEach(element => element.addClass('selectable'));
@@ -196,7 +209,7 @@ function checkSelectionStatus() {
 
     selection[tool].clear();
     removeSelectedClass();
-    animateSelectableObjects();
+    notifySelectableElements();
   }
 }
 
@@ -231,7 +244,7 @@ var callbackClickSelectable = function callbackClickSelectable(e) {
   }
 
   if (didAdvance) {
-    animateSelectableObjects();
+    notifySelectableElements();
   }
 
   checkSelectionStatus();
@@ -389,7 +402,7 @@ function drawTooltip(x, y, text, padding) {
   var svgEscText = s.text(x, y, text);
   svgEscText.attr({
     fontFamily: 'Sans-Serif',
-    fontSize: '22px'
+    fontSize: '12px'
   });
   svgEscText.addClass('tool-tip'); // Create the rectangular background behind the text
 
@@ -429,8 +442,18 @@ function setupCanvas() {
       svgGridPoint.click(callbackClickSelectable);
     }
   }
+}
 
-  drawTooltip(40, 40, 'esc', 10);
+function updateToolTip() {
+  // Remove any existing tool tip elements
+  s.selectAll('.tool-tip').forEach(function (element) {
+    return element.remove();
+  });
+  s.selectAll('.tool-tip-background').forEach(function (element) {
+    return element.remove();
+  });
+  var help = selection[tool].help;
+  drawTooltip(30, h - 30, help, 20);
 } // Add event listeners to tool icons
 
 
@@ -456,7 +479,8 @@ toolIcons.forEach(function (element) {
     tool = this.getAttribute('op');
     console.log("Switched to tool: ".concat(tool));
     selection[tool].clear();
-    animateSelectableObjects();
+    notifySelectableElements();
+    updateToolTip();
   });
 });
 document.addEventListener('keydown', function (event) {
