@@ -45,7 +45,7 @@ let selection = {
 	'line-segment': new OrderedSelection([new SelectionGroup('vertex', 2)], helpMessages.LINE_SEGMENT),
 	'perpendicular': new OrderedSelection([new SelectionGroup('vertex', 1), new SelectionGroup('crease', 1)], helpMessages.PERPENDICULAR),
 	'incenter': new OrderedSelection([new SelectionGroup('vertex', 3)], helpMessages.INCENTER),
-	'delete-vertex': null,
+	'delete-vertex': new OrderedSelection([new SelectionGroup('vertex', 1)]),
 	'delete-crease': null
 };
 
@@ -193,6 +193,10 @@ function operate() {
 
 		addCrease(new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy), perp);
 
+	} else if (tool === tools.DELETE_VERTEX) {
+		// Deletion only requires a reference to a single vertex
+		const vertex = selection[tool].groups[0].refs[0];
+		removeVertex(vertex);
 	}
 }
 
@@ -299,6 +303,10 @@ function addCrease(a, b) {
 	// return edgeIndex? - see `addVertex`
 }
 
+function removeCrease(element) {
+
+}
+
 /**
  * Draws a virtual crease (i.e. an SVG line segment)
  * @param {number} index - the index of the edge in the underlying planar graph that this crease corresponds to	
@@ -309,6 +317,12 @@ function drawCrease(index) {
 		console.log(`Crease SVG with stored index ${index} was removed and re-added`);
 	} else {
 		console.log(`Crease SVG with stored index: ${index} was newly added`);
+	}
+
+	if (index >= g.edgeCount) {
+		// This was an edge that was deleted
+		console.log('Returning early from the draw crease function');
+		return;
 	}
 
 	let svg = s.line(
@@ -349,6 +363,14 @@ function addVertex(p) {
 	return nodeIndex;
 }
 
+function removeVertex(element) {
+	const targetIndex = element.data('index');
+	const [nodeIndices, edgeIndices] = g.removeNode(targetIndex);
+
+	nodeIndices.forEach(index => drawVertex(index));
+	edgeIndices.forEach(index => drawCrease(index));
+}
+
 /**
  * Draws a virtual vertex (i.e. an SVG circle)
  * @param {number} index - the index of the node in the underlying planar graph that this vertex corresponds to	
@@ -359,6 +381,12 @@ function drawVertex(index) {
 		console.log(`Vertex SVG with stored index ${index} was removed and re-added`);
 	} else {
 		console.log(`Vertex SVG with stored index: ${index} was newly added`);
+	}
+
+	if (index >= g.nodeCount) {
+		// This was a node that was deleted
+		console.log('Returning early from the draw vertex function');
+		return;
 	}
 
 	let svg = s.circle(g.nodes[index].x, g.nodes[index].y, vertexDrawRadius);

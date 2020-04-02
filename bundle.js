@@ -64,7 +64,7 @@ var selection = {
   'line-segment': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 2)], helpMessages.LINE_SEGMENT),
   'perpendicular': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 1), new _selection.SelectionGroup('crease', 1)], helpMessages.PERPENDICULAR),
   'incenter': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 3)], helpMessages.INCENTER),
-  'delete-vertex': null,
+  'delete-vertex': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 1)]),
   'delete-crease': null
 }; // Configuration for application start
 
@@ -195,6 +195,10 @@ function operate() {
     var creases = selection[tool].groups[1].refs;
     var perp = geom.calculatePerpendicular(new _math.Vec2(creases[0].attr().x1, creases[0].attr().y1), new _math.Vec2(creases[0].attr().x2, creases[0].attr().y2), new _math.Vec2(_vertices3[0].getBBox().cx, _vertices3[0].getBBox().cy));
     addCrease(new _math.Vec2(_vertices3[0].getBBox().cx, _vertices3[0].getBBox().cy), perp);
+  } else if (tool === tools.DELETE_VERTEX) {
+    // Deletion only requires a reference to a single vertex
+    var vertex = selection[tool].groups[0].refs[0];
+    removeVertex(vertex);
   }
 }
 /**
@@ -326,6 +330,8 @@ function addCrease(a, b) {
     return drawCrease(index);
   }); // return edgeIndex? - see `addVertex`
 }
+
+function removeCrease(element) {}
 /**
  * Draws a virtual crease (i.e. an SVG line segment)
  * @param {number} index - the index of the edge in the underlying planar graph that this crease corresponds to	
@@ -338,6 +344,12 @@ function drawCrease(index) {
     console.log("Crease SVG with stored index ".concat(index, " was removed and re-added"));
   } else {
     console.log("Crease SVG with stored index: ".concat(index, " was newly added"));
+  }
+
+  if (index >= g.edgeCount) {
+    // This was an edge that was deleted
+    console.log('Returning early from the draw crease function');
+    return;
   }
 
   var svg = s.line(g.nodes[g.edges[index][0]].x, g.nodes[g.edges[index][0]].y, g.nodes[g.edges[index][1]].x, g.nodes[g.edges[index][1]].y);
@@ -375,6 +387,22 @@ function addVertex(p) {
   });
   return nodeIndex;
 }
+
+function removeVertex(element) {
+  var targetIndex = element.data('index');
+
+  var _g$removeNode = g.removeNode(targetIndex),
+      _g$removeNode2 = _slicedToArray(_g$removeNode, 2),
+      nodeIndices = _g$removeNode2[0],
+      edgeIndices = _g$removeNode2[1];
+
+  nodeIndices.forEach(function (index) {
+    return drawVertex(index);
+  });
+  edgeIndices.forEach(function (index) {
+    return drawCrease(index);
+  });
+}
 /**
  * Draws a virtual vertex (i.e. an SVG circle)
  * @param {number} index - the index of the node in the underlying planar graph that this vertex corresponds to	
@@ -387,6 +415,12 @@ function drawVertex(index) {
     console.log("Vertex SVG with stored index ".concat(index, " was removed and re-added"));
   } else {
     console.log("Vertex SVG with stored index: ".concat(index, " was newly added"));
+  }
+
+  if (index >= g.nodeCount) {
+    // This was a node that was deleted
+    console.log('Returning early from the draw vertex function');
+    return;
   }
 
   var svg = s.circle(g.nodes[index].x, g.nodes[index].y, vertexDrawRadius);
@@ -9759,6 +9793,8 @@ var geom = _interopRequireWildcard(require("./geometry.js"));
 
 var _math = require("./math.js");
 
+var utils = _interopRequireWildcard(require("./utils.js"));
+
 function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function _getRequireWildcardCache() { return cache; }; return cache; }
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || _typeof(obj) !== "object" && typeof obj !== "function") { return { "default": obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj["default"] = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
@@ -9898,7 +9934,8 @@ var PlanarGraph = /*#__PURE__*/function () {
           var childEdgeB = [edge[1], targetIndex]; // Put one of the new edges in the slot that was previously occupied by the old, 
           // un-split edge and the other at the end of the array - the prior is done so that 
           // we don't have to worry about the rest of the edges being "shuffled" as a result 
-          // of a standard array "remove" operation
+          // of a standard array "remove" operation...essentially, we want to add/remove edges
+          // in-place
 
           _this.edges[index] = childEdgeA;
 
@@ -9950,21 +9987,63 @@ var PlanarGraph = /*#__PURE__*/function () {
       return [changedNodes, changedEdges];
     }
   }, {
-    key: "deleteNode",
-    value: function deleteNode(targetIndex) {
-      // First, remove the node at the specified index
-      this.nodes.splice(targetIndex, 1); // Then, delete any edges that contain the removed vertex 
+    key: "removeNode",
+    value: function removeNode(targetIndex) {
+      // Put the last node in the position of the node to-be-deleted
+      this.nodes[targetIndex] = this.nodes[this.nodeCount - 1]; // Any edge that points to the last node needs to be reconfigured, as that node was just moved
+      // this.edges.forEach((edge, index) => {
+      // 	const foundIndex = edge.findIndex(node => node === this.nodeCount - 1);
+      // 	if (foundIndex > -1) {
+      // 		this.edges[index][foundIndex] = targetIndex;
+      // 		console.log(`Edge shuffle for target index ${targetIndex} and ${this.nodeCount - 1}: ${edge}`)
+      // 	}
+      // });
 
-      this.deleteEdgesWithVertex(targetIndex);
-      var changedNodes = [targetIndex];
-      var changedEdges = []; // TODO: ...
+      var changedNodes = [targetIndex, this.nodeCount - 1]; // Remove the last node, which is now a duplicate entry
 
+      this.nodes.pop(); // Remove any edges that point to the deleted node
+
+      var _this$removeEdgesInci = this.removeEdgesIncidentToNode(targetIndex),
+          _this$removeEdgesInci2 = _slicedToArray(_this$removeEdgesInci, 2),
+          strayNodes = _this$removeEdgesInci2[0],
+          changedEdges = _this$removeEdgesInci2[1];
+
+      console.log('Changed edges', changedEdges);
+      console.log('Stray nodes:', strayNodes);
       return [changedNodes, changedEdges];
     }
   }, {
-    key: "deleteEdgesWithNode",
-    value: function deleteEdgesWithNode(targetIndex) {
-      var edgesToDelete = this.edges.filter(function (edge) {
+    key: "removeEdgesIncidentToNode",
+    value: function removeEdgesIncidentToNode(targetIndex) {
+      var _this3 = this;
+
+      var markedNodes = [];
+      var markedEdges = [];
+      this.edges.forEach(function (edge, index) {
+        // Does this edge start (or end) at the specified node?
+        if (edge.includes(targetIndex)) {
+          markedEdges.push(index); // Deleting an edge may result in a "floating" stray node, which needs to be deleted as well
+
+          edge.forEach(function (node) {
+            if (_this3.isStrayNode(node) && node !== targetIndex) {
+              markedNodes.push(node);
+            }
+          });
+        }
+      }); // Remove all invalid edges simultaneously simultaneously
+
+      this.edges = utils.removeValuesAtIndices(this.edges, markedEdges); // Remove all invalid (stray) vertices simultaneously
+      // ...
+      // Return the indices of the nodes / edges that now occupy the positions leftover
+      // by the removed objects (plus the indices that we just used for removal?)
+      // ...
+
+      return [markedNodes, markedEdges];
+    }
+  }, {
+    key: "isStrayNode",
+    value: function isStrayNode(targetIndex) {
+      return !this.edges.some(function (edge) {
         return edge.includes(targetIndex);
       });
     }
@@ -9989,7 +10068,7 @@ var PlanarGraph = /*#__PURE__*/function () {
 
 exports.PlanarGraph = PlanarGraph;
 
-},{"./geometry.js":4,"./math.js":6}],6:[function(require,module,exports){
+},{"./geometry.js":4,"./math.js":6,"./utils.js":8}],6:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -10220,5 +10299,30 @@ var OrderedSelection = /*#__PURE__*/function () {
 }();
 
 exports.OrderedSelection = OrderedSelection;
+
+},{}],8:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.removeValuesAtIndices = removeValuesAtIndices;
+
+/**
+ * Remove multiple items from an array simultaneously, for example:
+ *
+ *		let values = ['v1', 'v2', 'v3', 'v4', 'v5'];
+ *		let removeIndices = [0, 2, 4];
+ *
+ * This would result in `values` becoming: ['v2', 'v4']
+ * @param {*[]} array - an array of items to be deleted
+ * @param {number[]} indices - an array containing all of the indices of the items that should be removed
+ * @return {*[]} - the modified array
+ */
+function removeValuesAtIndices(array, indices) {
+  return array.filter(function (value, index) {
+    return indices.indexOf(index) == -1;
+  });
+}
 
 },{}]},{},[1]);

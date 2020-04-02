@@ -1,5 +1,6 @@
 import * as geom from './geometry.js';
-import { Vec2 } from './math.js'
+import { Vec2 } from './math.js';
+import * as utils from './utils.js';
 
 /**
  * A class that represents an embedding of a planar graph
@@ -112,7 +113,8 @@ export class PlanarGraph {
 				// Put one of the new edges in the slot that was previously occupied by the old, 
 				// un-split edge and the other at the end of the array - the prior is done so that 
 				// we don't have to worry about the rest of the edges being "shuffled" as a result 
-				// of a standard array "remove" operation
+				// of a standard array "remove" operation...essentially, we want to add/remove edges
+				// in-place
 				this.edges[index] = childEdgeA;
 				this.edges.push(childEdgeB);
 	
@@ -166,23 +168,67 @@ export class PlanarGraph {
 		return [changedNodes, changedEdges];
 	}
 
-	deleteNode(targetIndex) {
-		// First, remove the node at the specified index
-		this.nodes.splice(targetIndex, 1);
+	removeNode(targetIndex) {
+		// Put the last node in the position of the node to-be-deleted
+		this.nodes[targetIndex] = this.nodes[this.nodeCount - 1];
 
-		// Then, delete any edges that contain the removed vertex 
-		this.deleteEdgesWithVertex(targetIndex);
+		// Any edge that points to the last node needs to be reconfigured, as that node was just moved
+		// this.edges.forEach((edge, index) => {
+		// 	const foundIndex = edge.findIndex(node => node === this.nodeCount - 1);
+		// 	if (foundIndex > -1) {
+		// 		this.edges[index][foundIndex] = targetIndex;
+		// 		console.log(`Edge shuffle for target index ${targetIndex} and ${this.nodeCount - 1}: ${edge}`)
+		// 	}
+		// });
+		let changedNodes = [targetIndex, this.nodeCount - 1];
 
-		let changedNodes = [targetIndex];
-		let changedEdges = [];
+		// Remove the last node, which is now a duplicate entry
+		this.nodes.pop();
 
-		// TODO: ...
+		// Remove any edges that point to the deleted node
+		let [strayNodes, changedEdges] = this.removeEdgesIncidentToNode(targetIndex);
+		console.log('Changed edges', changedEdges)
+		console.log('Stray nodes:', strayNodes)
+
+
 
 		return [changedNodes, changedEdges];	
 	}
 
-	deleteEdgesWithNode(targetIndex) {
-		const edgesToDelete = this.edges.filter(edge => edge.includes(targetIndex));
+	removeEdgesIncidentToNode(targetIndex) {
+		let markedNodes = [];
+		let markedEdges = [];
+
+		this.edges.forEach((edge, index) => {
+			// Does this edge start (or end) at the specified node?
+			if (edge.includes(targetIndex)) {
+
+				markedEdges.push(index);
+
+				// Deleting an edge may result in a "floating" stray node, which needs to be deleted as well
+				edge.forEach(node => {
+					if (this.isStrayNode(node) && node !== targetIndex) {
+						markedNodes.push(node);
+					}
+				})
+			}
+
+		});
+
+		// Remove all invalid edges simultaneously simultaneously
+		this.edges = utils.removeValuesAtIndices(this.edges, markedEdges); 
+
+		// Remove all invalid (stray) vertices simultaneously
+		// ...
+
+		// Return the indices of the nodes / edges that now occupy the positions leftover
+		// by the removed objects (plus the indices that we just used for removal?)
+		// ...
+
+		return [markedNodes, markedEdges];
 	}
 
+	isStrayNode(targetIndex) {
+		return !this.edges.some(edge => edge.includes(targetIndex));
+	}
 }
