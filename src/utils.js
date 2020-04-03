@@ -14,3 +14,13 @@ export function removeValuesAtIndices(array, indices) {
 		return indices.indexOf(index) == -1;
 	});
 }
+
+export function indexRange(start, end) {
+	let indices = [];
+	console.assert(start < end);
+
+	for (let index = start; index < end; index++) {
+		indices.push(index);
+	}
+	return indices;
+}

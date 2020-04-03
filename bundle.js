@@ -389,7 +389,7 @@ function addVertex(p) {
 }
 
 function removeVertex(element) {
-  var targetIndex = element.data('index');
+  var targetIndex = element.data('index'); //g.removeNode(targetIndex);
 
   var _g$removeNode = g.removeNode(targetIndex),
       _g$removeNode2 = _slicedToArray(_g$removeNode, 2),
@@ -9799,6 +9799,14 @@ function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return 
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || _typeof(obj) !== "object" && typeof obj !== "function") { return { "default": obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj["default"] = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _unsupportedIterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+
+function _iterableToArray(iter) { if (typeof Symbol !== "undefined" && Symbol.iterator in Object(iter)) return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) return _arrayLikeToArray(arr); }
+
 function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest(); }
 
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -9989,63 +9997,97 @@ var PlanarGraph = /*#__PURE__*/function () {
   }, {
     key: "removeNode",
     value: function removeNode(targetIndex) {
-      // Put the last node in the position of the node to-be-deleted
-      this.nodes[targetIndex] = this.nodes[this.nodeCount - 1]; // Any edge that points to the last node needs to be reconfigured, as that node was just moved
-      // this.edges.forEach((edge, index) => {
-      // 	const foundIndex = edge.findIndex(node => node === this.nodeCount - 1);
-      // 	if (foundIndex > -1) {
-      // 		this.edges[index][foundIndex] = targetIndex;
-      // 		console.log(`Edge shuffle for target index ${targetIndex} and ${this.nodeCount - 1}: ${edge}`)
-      // 	}
-      // });
+      var _this3 = this;
 
-      var changedNodes = [targetIndex, this.nodeCount - 1]; // Remove the last node, which is now a duplicate entry
-
-      this.nodes.pop(); // Remove any edges that point to the deleted node
+      // This list will contain the indices of all of the nodes that need to be deleted
+      var markedNodes = [targetIndex]; // Remove any edges that point to the deleted node
 
       var _this$removeEdgesInci = this.removeEdgesIncidentToNode(targetIndex),
           _this$removeEdgesInci2 = _slicedToArray(_this$removeEdgesInci, 2),
           strayNodes = _this$removeEdgesInci2[0],
-          changedEdges = _this$removeEdgesInci2[1];
+          markedEdges = _this$removeEdgesInci2[1];
 
-      console.log('Changed edges', changedEdges);
-      console.log('Stray nodes:', strayNodes);
+      markedNodes = markedNodes.concat(strayNodes); // A dictionary from "old" to "new" node indices - the node in the 5th position of the 
+      // array, for example, will shift downwards some amount if we delete nodes before it, and 
+      // this data structure captures those relationships for all nodes that are still present
+      // after the deletion operation
+
+      var remappedNodes = {};
+      this.nodes.forEach(function (node, index) {
+        // If this node was not marked for deletion, its new index in the array will be its
+        // current position minus the number of to-be-deleted nodes that come *before* it in 
+        // the array
+        if (!markedNodes.includes(index)) {
+          var back = markedNodes.filter(function (entry) {
+            return entry < index;
+          }).length;
+          remappedNodes[index] = index - back;
+        }
+      }); // Keep track of the index of the "leftmost" node / edge to-be-deleted
+
+      var minNodeIndex = Math.min.apply(Math, _toConsumableArray(markedNodes));
+      var minEdgeIndex = Math.min.apply(Math, _toConsumableArray(markedEdges)); // All nodes / edges that are to the right of the indices calculated above will change
+
+      var changedNodes = utils.indexRange(minNodeIndex, this.nodeCount);
+      var changedEdges = utils.indexRange(minEdgeIndex, this.edgeCount);
+      console.log('Nodes marked for deletion:', markedNodes);
+      console.log('Edges marked for deletion:', markedEdges);
+      console.log('Min node index:', minNodeIndex);
+      console.log('Min edge index:', minEdgeIndex);
+      console.log('Remapped node indices:', remappedNodes);
+      console.log('Changed nodes:', changedNodes);
+      console.log('Changed edges:', changedEdges); // Perform the actual deletion operation
+
+      this.nodes = utils.removeValuesAtIndices(this.nodes, markedNodes);
+      this.edges = utils.removeValuesAtIndices(this.edges, markedEdges); // Update any edges that pointed to nodes that were shuffled / moved as a result
+      // of the deletion procedure
+
+      var keys = Object.keys(remappedNodes).map(function (entry) {
+        return parseInt(entry);
+      });
+      this.edges.forEach(function (edge, index) {
+        // The indices of the start + end nodes that form this edge
+        var _edge = _slicedToArray(edge, 2),
+            indexA = _edge[0],
+            indexB = _edge[1]; // If the dictionary of "old" to "new" node indices contains either of this edge's
+        // endpoints, update those indices to reflect the new graph structure
+
+
+        if (keys.includes(indexA)) {
+          _this3.edges[index][0] = remappedNodes[indexA];
+        }
+
+        if (keys.includes(indexB)) {
+          _this3.edges[index][1] = remappedNodes[indexB];
+        }
+      });
+      console.log('Edges after update:', this.edges);
       return [changedNodes, changedEdges];
     }
   }, {
     key: "removeEdgesIncidentToNode",
     value: function removeEdgesIncidentToNode(targetIndex) {
-      var _this3 = this;
+      var _this4 = this;
 
       var markedNodes = [];
       var markedEdges = [];
       this.edges.forEach(function (edge, index) {
-        // Does this edge start (or end) at the specified node?
         if (edge.includes(targetIndex)) {
-          markedEdges.push(index); // Deleting an edge may result in a "floating" stray node, which needs to be deleted as well
+          // This edge should be marked for deletion, as it contains the node that we want to delete
+          markedEdges.push(index); // Deleting an edge may result in a "floating" stray node, which needs to be deleted as well -
+          // this is the edge's other node (i.e. not the one that is already marked for deletion)
 
-          edge.forEach(function (node) {
-            if (_this3.isStrayNode(node) && node !== targetIndex) {
-              markedNodes.push(node);
-            }
-          });
+          var neighbor = edge[1 - edge.indexOf(targetIndex)]; // Is there another edge (other than this one) that includes the specified node? If not, it 
+          // is a "stray" node
+
+          if (_this4.edges.filter(function (other) {
+            return other.includes(neighbor);
+          }).length === 1) {
+            markedNodes.push(neighbor);
+          }
         }
-      }); // Remove all invalid edges simultaneously simultaneously
-
-      this.edges = utils.removeValuesAtIndices(this.edges, markedEdges); // Remove all invalid (stray) vertices simultaneously
-      // ...
-      // Return the indices of the nodes / edges that now occupy the positions leftover
-      // by the removed objects (plus the indices that we just used for removal?)
-      // ...
-
-      return [markedNodes, markedEdges];
-    }
-  }, {
-    key: "isStrayNode",
-    value: function isStrayNode(targetIndex) {
-      return !this.edges.some(function (edge) {
-        return edge.includes(targetIndex);
       });
+      return [markedNodes, markedEdges];
     }
   }, {
     key: "nodeCount",
@@ -10307,6 +10349,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.removeValuesAtIndices = removeValuesAtIndices;
+exports.indexRange = indexRange;
 
 /**
  * Remove multiple items from an array simultaneously, for example:
@@ -10323,6 +10366,17 @@ function removeValuesAtIndices(array, indices) {
   return array.filter(function (value, index) {
     return indices.indexOf(index) == -1;
   });
+}
+
+function indexRange(start, end) {
+  var indices = [];
+  console.assert(start < end);
+
+  for (var index = start; index < end; index++) {
+    indices.push(index);
+  }
+
+  return indices;
 }
 
 },{}]},{},[1]);

@@ -365,7 +365,9 @@ function addVertex(p) {
 
 function removeVertex(element) {
 	const targetIndex = element.data('index');
-	const [nodeIndices, edgeIndices] = g.removeNode(targetIndex);
+
+	//g.removeNode(targetIndex);
+    const [nodeIndices, edgeIndices] = g.removeNode(targetIndex);
 
 	nodeIndices.forEach(index => drawVertex(index));
 	edgeIndices.forEach(index => drawCrease(index));

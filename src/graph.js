@@ -169,29 +169,70 @@ export class PlanarGraph {
 	}
 
 	removeNode(targetIndex) {
-		// Put the last node in the position of the node to-be-deleted
-		this.nodes[targetIndex] = this.nodes[this.nodeCount - 1];
-
-		// Any edge that points to the last node needs to be reconfigured, as that node was just moved
-		// this.edges.forEach((edge, index) => {
-		// 	const foundIndex = edge.findIndex(node => node === this.nodeCount - 1);
-		// 	if (foundIndex > -1) {
-		// 		this.edges[index][foundIndex] = targetIndex;
-		// 		console.log(`Edge shuffle for target index ${targetIndex} and ${this.nodeCount - 1}: ${edge}`)
-		// 	}
-		// });
-		let changedNodes = [targetIndex, this.nodeCount - 1];
-
-		// Remove the last node, which is now a duplicate entry
-		this.nodes.pop();
+		// This list will contain the indices of all of the nodes that need to be deleted
+		let markedNodes = [targetIndex];
 
 		// Remove any edges that point to the deleted node
-		let [strayNodes, changedEdges] = this.removeEdgesIncidentToNode(targetIndex);
-		console.log('Changed edges', changedEdges)
-		console.log('Stray nodes:', strayNodes)
+		let [strayNodes, markedEdges] = this.removeEdgesIncidentToNode(targetIndex);
+		markedNodes = markedNodes.concat(strayNodes);
+ 
 
+		// A dictionary from "old" to "new" node indices - the node in the 5th position of the 
+		// array, for example, will shift downwards some amount if we delete nodes before it, and 
+		// this data structure captures those relationships for all nodes that are still present
+		// after the deletion operation
+		let remappedNodes = {};
 
+		this.nodes.forEach((node, index) => {
+			// If this node was not marked for deletion, its new index in the array will be its
+			// current position minus the number of to-be-deleted nodes that come *before* it in 
+			// the array
+			if (!markedNodes.includes(index)) {
+				const back = markedNodes.filter(entry => entry < index).length;
+				remappedNodes[index] = index - back;
+			}
+		});
 
+		// Keep track of the index of the "leftmost" node / edge to-be-deleted
+		const minNodeIndex = Math.min(...markedNodes);
+		const minEdgeIndex = Math.min(...markedEdges);
+
+		// All nodes / edges that are to the right of the indices calculated above will change
+		let changedNodes = utils.indexRange(minNodeIndex, this.nodeCount);
+		let changedEdges = utils.indexRange(minEdgeIndex, this.edgeCount);
+
+		console.log('Nodes marked for deletion:', markedNodes);
+		console.log('Edges marked for deletion:', markedEdges);
+		console.log('Min node index:', minNodeIndex);
+		console.log('Min edge index:', minEdgeIndex);
+		console.log('Remapped node indices:', remappedNodes);
+		console.log('Changed nodes:', changedNodes);
+		console.log('Changed edges:', changedEdges);
+
+		// Perform the actual deletion operation
+		this.nodes = utils.removeValuesAtIndices(this.nodes, markedNodes); 
+		this.edges = utils.removeValuesAtIndices(this.edges, markedEdges); 
+
+		// Update any edges that pointed to nodes that were shuffled / moved as a result
+		// of the deletion procedure
+		let keys = Object.keys(remappedNodes).map(entry => parseInt(entry));
+
+		this.edges.forEach((edge, index) => {
+			// The indices of the start + end nodes that form this edge
+			const [indexA, indexB] = edge;
+			
+			// If the dictionary of "old" to "new" node indices contains either of this edge's
+			// endpoints, update those indices to reflect the new graph structure
+			if (keys.includes(indexA)) {
+				this.edges[index][0] = remappedNodes[indexA];
+			}
+			if (keys.includes(indexB)) {
+				this.edges[index][1] = remappedNodes[indexB];
+			}
+
+		});
+		console.log('Edges after update:', this.edges)
+		
 		return [changedNodes, changedEdges];	
 	}
 
@@ -200,35 +241,25 @@ export class PlanarGraph {
 		let markedEdges = [];
 
 		this.edges.forEach((edge, index) => {
-			// Does this edge start (or end) at the specified node?
+		
 			if (edge.includes(targetIndex)) {
-
+				// This edge should be marked for deletion, as it contains the node that we want to delete
 				markedEdges.push(index);
 
-				// Deleting an edge may result in a "floating" stray node, which needs to be deleted as well
-				edge.forEach(node => {
-					if (this.isStrayNode(node) && node !== targetIndex) {
-						markedNodes.push(node);
-					}
-				})
+				// Deleting an edge may result in a "floating" stray node, which needs to be deleted as well -
+				// this is the edge's other node (i.e. not the one that is already marked for deletion)
+				let neighbor = edge[1 - edge.indexOf(targetIndex)];
+
+				// Is there another edge (other than this one) that includes the specified node? If not, it 
+				// is a "stray" node
+				if (this.edges.filter(other => other.includes(neighbor)).length === 1) {
+					markedNodes.push(neighbor);
+				}
 			}
 
 		});
 
-		// Remove all invalid edges simultaneously simultaneously
-		this.edges = utils.removeValuesAtIndices(this.edges, markedEdges); 
-
-		// Remove all invalid (stray) vertices simultaneously
-		// ...
-
-		// Return the indices of the nodes / edges that now occupy the positions leftover
-		// by the removed objects (plus the indices that we just used for removal?)
-		// ...
-
 		return [markedNodes, markedEdges];
 	}
 
-	isStrayNode(targetIndex) {
-		return !this.edges.some(edge => edge.includes(targetIndex));
-	}
 }
