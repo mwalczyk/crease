@@ -53,8 +53,8 @@ let selection = {
 let tool = tools.LINE_SEGMENT;
 const gridDivsX = 11;
 const gridDivsY = 11;
-const gridPointDrawRadius = 4;
-const vertexDrawRadius = 6;
+const gridPointDrawRadius = 3;
+const vertexDrawRadius = 5;
 const creaseStrokeWidth = 4;
 
 /**
@@ -304,6 +304,7 @@ function addCrease(a, b) {
 }
 
 function removeCrease(element) {
+	const targetIndex = element.data('index');
 
 }
 
@@ -320,7 +321,8 @@ function drawCrease(index) {
 	}
 
 	if (index >= g.edgeCount) {
-		// This was an edge that was deleted
+		// This was probably an edge that was deleted - the code above will handle removing the SVG element, so
+		// no further processing needs to happen
 		console.log('Returning early from the draw crease function');
 		return;
 	}
@@ -364,11 +366,12 @@ function addVertex(p) {
 }
 
 function removeVertex(element) {
+	// Grab the index of the graph node that this vertex corresponds to
 	const targetIndex = element.data('index');
 
-	//g.removeNode(targetIndex);
+	// Removing a node results in a list of node / edge indices that have changed - note that some of
+	// these may correspond to nodes / edges that were deleted
     const [nodeIndices, edgeIndices] = g.removeNode(targetIndex);
-
 	nodeIndices.forEach(index => drawVertex(index));
 	edgeIndices.forEach(index => drawCrease(index));
 }
@@ -386,7 +389,8 @@ function drawVertex(index) {
 	}
 
 	if (index >= g.nodeCount) {
-		// This was a node that was deleted
+		// This was probably a node that was deleted - the code above will handle removing the SVG element, so
+		// no further processing needs to happen
 		console.log('Returning early from the draw vertex function');
 		return;
 	}

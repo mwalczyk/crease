@@ -71,8 +71,8 @@ var selection = {
 var tool = tools.LINE_SEGMENT;
 var gridDivsX = 11;
 var gridDivsY = 11;
-var gridPointDrawRadius = 4;
-var vertexDrawRadius = 6;
+var gridPointDrawRadius = 3;
+var vertexDrawRadius = 5;
 var creaseStrokeWidth = 4;
 /**
  * Applies a cyclic animation to a particular attribute of an SVG DOM element
@@ -331,7 +331,9 @@ function addCrease(a, b) {
   }); // return edgeIndex? - see `addVertex`
 }
 
-function removeCrease(element) {}
+function removeCrease(element) {
+  var targetIndex = element.data('index');
+}
 /**
  * Draws a virtual crease (i.e. an SVG line segment)
  * @param {number} index - the index of the edge in the underlying planar graph that this crease corresponds to	
@@ -347,7 +349,8 @@ function drawCrease(index) {
   }
 
   if (index >= g.edgeCount) {
-    // This was an edge that was deleted
+    // This was probably an edge that was deleted - the code above will handle removing the SVG element, so
+    // no further processing needs to happen
     console.log('Returning early from the draw crease function');
     return;
   }
@@ -389,7 +392,9 @@ function addVertex(p) {
 }
 
 function removeVertex(element) {
-  var targetIndex = element.data('index'); //g.removeNode(targetIndex);
+  // Grab the index of the graph node that this vertex corresponds to
+  var targetIndex = element.data('index'); // Removing a node results in a list of node / edge indices that have changed - note that some of
+  // these may correspond to nodes / edges that were deleted
 
   var _g$removeNode = g.removeNode(targetIndex),
       _g$removeNode2 = _slicedToArray(_g$removeNode, 2),
@@ -418,7 +423,8 @@ function drawVertex(index) {
   }
 
   if (index >= g.nodeCount) {
-    // This was a node that was deleted
+    // This was probably a node that was deleted - the code above will handle removing the SVG element, so
+    // no further processing needs to happen
     console.log('Returning early from the draw vertex function');
     return;
   }

@@ -2,17 +2,34 @@ html, body {
 	margin: 0; 
 }
 
-.container {
-	display: flex;	
+.header {
+	text-align: center;
+	font-family: 'Heebo';
+  	font-size: 12px;
+  	color: hsl(0, 0%, 88%);
 }
 
-.container.tool-icons {
+.container {
+	display: inline-flex;
+	
+}
+
+.container.row {
+	flex-direction: row;
+}
+
+.container.column {
 	flex-direction: column;
-	transform: scale(0.5);
+	align-items: center;
+	/*border: 2em hsl(0, 0%, 22%) solid;*/
 }
 
 .item {
-	border: 0.25em hsl(0, 0%, 22%) solid;
+	border: 0.075em hsl(0, 0%, 22%) solid;
+}
+
+.tool-icon {
+
 }
 
 .tool-icon:hover .tool-background {
