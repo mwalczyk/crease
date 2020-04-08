@@ -129,8 +129,8 @@ export class PlanarGraph {
 	 * Splits any edges that intersect with the specified edge
 	 * @param {number} targetIndex - the index of the edge to split along
 	 * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of 
-	 *		any newly created (or modified) vertices while the second contains the indices of any 
-	 *		newly created (or modified) edges
+	 *		any newly created (or modified) nodes while the second contains the indices of any newly 
+	 *		created (or modified) edges
 	 */
 	splitEdgesAlongEdge(targetIndex) {
 		let changedNodes = [];
@@ -168,7 +168,48 @@ export class PlanarGraph {
 		return [changedNodes, changedEdges];
 	}
 
+	numberOfEdgesIncidentTo(index) {
+		return this.edges.filter(edge => edge.includes(index)).length;
+	}
+
+	removeEdge(targetIndex) {
+		if (targetIndex < 0 || targetIndex > this.edgeCount) {
+			console.error('Attempting to remove an edge at an invalid index');
+		}
+
+		const [indexA, indexB] = this.edges[targetIndex];
+
+		// If either of this edge's endpoints would be stray nodes upon this edge's deletion,
+		// we can simply re-use the node deletion procedure below, which will remove this edge
+		// as a side effect
+		if (this.numberOfEdgesIncidentTo(indexA) === 1) {
+			return this.removeNode(indexA);
+		} else if (this.numberOfEdgesIncidentTo(indexB) === 1) {
+			return this.removeNode(indexB);
+		} 
+
+		// Otherwise, both of the endpoints of this edge are also part of some other edges, so 
+		// we can simply delete the edge itself
+		let changedNodes = [];
+		let changedEdges = [targetIndex];
+
+		// If there is at least one other edge besides this one, replace the edge to-be-deleted
+		// with the last edge and return both indices - doing this prevents the entire array from
+		// being shuffled
+		if (this.edgeCount > 1) {
+			this.edges[targetIndex] = this.edges[this.edgeCount - 1];
+			changedEdges.push(this.edgeCount - 1);
+			this.edges.pop();
+		}
+
+		return [changedNodes, changedEdges];	
+	}
+
 	removeNode(targetIndex) {
+		if (targetIndex < 0 || targetIndex > this.nodeCount) {
+			console.error('Attempting to remove a node at an invalid index');
+		}
+
 		// This list will contain the indices of all of the nodes that need to be deleted
 		let markedNodes = [targetIndex];
 
@@ -201,13 +242,16 @@ export class PlanarGraph {
 		let changedNodes = utils.indexRange(minNodeIndex, this.nodeCount);
 		let changedEdges = utils.indexRange(minEdgeIndex, this.edgeCount);
 
-		console.log('Nodes marked for deletion:', markedNodes);
-		console.log('Edges marked for deletion:', markedEdges);
-		console.log('Min node index:', minNodeIndex);
-		console.log('Min edge index:', minEdgeIndex);
-		console.log('Remapped node indices:', remappedNodes);
-		console.log('Changed nodes:', changedNodes);
-		console.log('Changed edges:', changedEdges);
+		const debug = false;
+		if (debug) {
+			console.log('Nodes marked for deletion:', markedNodes);
+			console.log('Edges marked for deletion:', markedEdges);
+			console.log('Min node index:', minNodeIndex);
+			console.log('Min edge index:', minEdgeIndex);
+			console.log('Remapped node indices:', remappedNodes);
+			console.log('Changed nodes:', changedNodes);
+			console.log('Changed edges:', changedEdges);
+		}
 
 		// Perform the actual deletion operation
 		this.nodes = utils.removeValuesAtIndices(this.nodes, markedNodes); 
@@ -236,6 +280,15 @@ export class PlanarGraph {
 		return [changedNodes, changedEdges];	
 	}
 
+	/**
+	 * Finds the indices of all of the edges (and stray nodes) that should be marked for deletion after
+	 * removing the specified node - note that this function doesn't actually perform the deletion of 
+	 * any of these objects
+	 * @param {number} targetIndex - the index of the node that will be deleted
+	 * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of 
+	 *		any stray nodes that should be marked for deletion, the second contains the indices of any
+	 * 		edges that should be marked for deletion
+	 */
 	removeEdgesIncidentToNode(targetIndex) {
 		let markedNodes = [];
 		let markedEdges = [];

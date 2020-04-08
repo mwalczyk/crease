@@ -46,7 +46,7 @@ let selection = {
 	'perpendicular': new OrderedSelection([new SelectionGroup('vertex', 1), new SelectionGroup('crease', 1)], helpMessages.PERPENDICULAR),
 	'incenter': new OrderedSelection([new SelectionGroup('vertex', 3)], helpMessages.INCENTER),
 	'delete-vertex': new OrderedSelection([new SelectionGroup('vertex', 1)]),
-	'delete-crease': null
+	'delete-crease': new OrderedSelection([new SelectionGroup('crease', 1)])
 };
 
 // Configuration for application start
@@ -197,6 +197,12 @@ function operate() {
 		// Deletion only requires a reference to a single vertex
 		const vertex = selection[tool].groups[0].refs[0];
 		removeVertex(vertex);
+
+	} else if (tool === tools.DELETE_CREASE) {
+		// Deletion only requires a reference to a single crease
+		const crease = selection[tool].groups[0].refs[0];
+		removeCrease(crease);
+
 	}
 }
 
@@ -304,8 +310,14 @@ function addCrease(a, b) {
 }
 
 function removeCrease(element) {
+	// Grab the index of the graph edge that this crease corresponds to
 	const targetIndex = element.data('index');
 
+	// Removing a crease results in a list of node / edge indices that have changed - note that some of
+	// these may correspond to nodes / edges that were deleted
+    const [nodeIndices, edgeIndices] = g.removeEdge(targetIndex);
+	nodeIndices.forEach(index => drawVertex(index));
+	edgeIndices.forEach(index => drawCrease(index));
 }
 
 /**

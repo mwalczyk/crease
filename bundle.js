@@ -65,7 +65,7 @@ var selection = {
   'perpendicular': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 1), new _selection.SelectionGroup('crease', 1)], helpMessages.PERPENDICULAR),
   'incenter': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 3)], helpMessages.INCENTER),
   'delete-vertex': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 1)]),
-  'delete-crease': null
+  'delete-crease': new _selection.OrderedSelection([new _selection.SelectionGroup('crease', 1)])
 }; // Configuration for application start
 
 var tool = tools.LINE_SEGMENT;
@@ -199,6 +199,10 @@ function operate() {
     // Deletion only requires a reference to a single vertex
     var vertex = selection[tool].groups[0].refs[0];
     removeVertex(vertex);
+  } else if (tool === tools.DELETE_CREASE) {
+    // Deletion only requires a reference to a single crease
+    var crease = selection[tool].groups[0].refs[0];
+    removeCrease(crease);
   }
 }
 /**
@@ -332,7 +336,21 @@ function addCrease(a, b) {
 }
 
 function removeCrease(element) {
-  var targetIndex = element.data('index');
+  // Grab the index of the graph edge that this crease corresponds to
+  var targetIndex = element.data('index'); // Removing a crease results in a list of node / edge indices that have changed - note that some of
+  // these may correspond to nodes / edges that were deleted
+
+  var _g$removeEdge = g.removeEdge(targetIndex),
+      _g$removeEdge2 = _slicedToArray(_g$removeEdge, 2),
+      nodeIndices = _g$removeEdge2[0],
+      edgeIndices = _g$removeEdge2[1];
+
+  nodeIndices.forEach(function (index) {
+    return drawVertex(index);
+  });
+  edgeIndices.forEach(function (index) {
+    return drawCrease(index);
+  });
 }
 /**
  * Draws a virtual crease (i.e. an SVG line segment)
@@ -9964,8 +9982,8 @@ var PlanarGraph = /*#__PURE__*/function () {
      * Splits any edges that intersect with the specified edge
      * @param {number} targetIndex - the index of the edge to split along
      * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of 
-     *		any newly created (or modified) vertices while the second contains the indices of any 
-     *		newly created (or modified) edges
+     *		any newly created (or modified) nodes while the second contains the indices of any newly 
+     *		created (or modified) edges
      */
 
   }, {
@@ -10001,11 +10019,57 @@ var PlanarGraph = /*#__PURE__*/function () {
       return [changedNodes, changedEdges];
     }
   }, {
+    key: "numberOfEdgesIncidentTo",
+    value: function numberOfEdgesIncidentTo(index) {
+      return this.edges.filter(function (edge) {
+        return edge.includes(index);
+      }).length;
+    }
+  }, {
+    key: "removeEdge",
+    value: function removeEdge(targetIndex) {
+      if (targetIndex < 0 || targetIndex > this.edgeCount) {
+        console.error('Attempting to remove an edge at an invalid index');
+      }
+
+      var _this$edges$targetInd = _slicedToArray(this.edges[targetIndex], 2),
+          indexA = _this$edges$targetInd[0],
+          indexB = _this$edges$targetInd[1]; // If either of this edge's endpoints would be stray nodes upon this edge's deletion,
+      // we can simply re-use the node deletion procedure below, which will remove this edge
+      // as a side effect
+
+
+      if (this.numberOfEdgesIncidentTo(indexA) === 1) {
+        return this.removeNode(indexA);
+      } else if (this.numberOfEdgesIncidentTo(indexB) === 1) {
+        return this.removeNode(indexB);
+      } // Otherwise, both of the endpoints of this edge are also part of some other edges, so 
+      // we can simply delete the edge itself
+
+
+      var changedNodes = [];
+      var changedEdges = [targetIndex]; // If there is at least one other edge besides this one, replace the edge to-be-deleted
+      // with the last edge and return both indices - doing this prevents the entire array from
+      // being shuffled
+
+      if (this.edgeCount > 1) {
+        this.edges[targetIndex] = this.edges[this.edgeCount - 1];
+        changedEdges.push(this.edgeCount - 1);
+        this.edges.pop();
+      }
+
+      return [changedNodes, changedEdges];
+    }
+  }, {
     key: "removeNode",
     value: function removeNode(targetIndex) {
       var _this3 = this;
 
-      // This list will contain the indices of all of the nodes that need to be deleted
+      if (targetIndex < 0 || targetIndex > this.nodeCount) {
+        console.error('Attempting to remove a node at an invalid index');
+      } // This list will contain the indices of all of the nodes that need to be deleted
+
+
       var markedNodes = [targetIndex]; // Remove any edges that point to the deleted node
 
       var _this$removeEdgesInci = this.removeEdgesIncidentToNode(targetIndex),
@@ -10036,13 +10100,18 @@ var PlanarGraph = /*#__PURE__*/function () {
 
       var changedNodes = utils.indexRange(minNodeIndex, this.nodeCount);
       var changedEdges = utils.indexRange(minEdgeIndex, this.edgeCount);
-      console.log('Nodes marked for deletion:', markedNodes);
-      console.log('Edges marked for deletion:', markedEdges);
-      console.log('Min node index:', minNodeIndex);
-      console.log('Min edge index:', minEdgeIndex);
-      console.log('Remapped node indices:', remappedNodes);
-      console.log('Changed nodes:', changedNodes);
-      console.log('Changed edges:', changedEdges); // Perform the actual deletion operation
+      var debug = false;
+
+      if (debug) {
+        console.log('Nodes marked for deletion:', markedNodes);
+        console.log('Edges marked for deletion:', markedEdges);
+        console.log('Min node index:', minNodeIndex);
+        console.log('Min edge index:', minEdgeIndex);
+        console.log('Remapped node indices:', remappedNodes);
+        console.log('Changed nodes:', changedNodes);
+        console.log('Changed edges:', changedEdges);
+      } // Perform the actual deletion operation
+
 
       this.nodes = utils.removeValuesAtIndices(this.nodes, markedNodes);
       this.edges = utils.removeValuesAtIndices(this.edges, markedEdges); // Update any edges that pointed to nodes that were shuffled / moved as a result
@@ -10070,6 +10139,16 @@ var PlanarGraph = /*#__PURE__*/function () {
       console.log('Edges after update:', this.edges);
       return [changedNodes, changedEdges];
     }
+    /**
+     * Finds the indices of all of the edges (and stray nodes) that should be marked for deletion after
+     * removing the specified node - note that this function doesn't actually perform the deletion of 
+     * any of these objects
+     * @param {number} targetIndex - the index of the node that will be deleted
+     * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of 
+     *		any stray nodes that should be marked for deletion, the second contains the indices of any
+     * 		edges that should be marked for deletion
+     */
+
   }, {
     key: "removeEdgesIncidentToNode",
     value: function removeEdgesIncidentToNode(targetIndex) {
