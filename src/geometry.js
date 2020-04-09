@@ -125,6 +125,15 @@ export function getLineEquation(a, b) {
 	return [slope, intercept];
 }
 
+/**
+ * Calculates the point of intersection between two infinite lines
+ * @param {Vec2} a - the first point on the first line
+ * @param {Vec2} b - the second point on the first line
+ * @param {Vec2} c - the first point on the second line
+ * @param {Vec2} d - the second point on the second line
+ * @param {number} eps - an epsilon (used for numerical stability)
+ * @return {Vec2} - the point of intersection (or null if no intersection is found)
+ */
 export function calculateLineIntersection(a, b, c, d, eps=0.001) {
 	const determinant = (d.y - c.y) * (b.x - a.x) - (d.x - c.x) * (b.y - a.y);
     
@@ -142,4 +151,30 @@ export function calculateLineIntersection(a, b, c, d, eps=0.001) {
 		return new Vec2(x, y);
     } 
     return null;
+}
+
+/**
+ * Calculates the (sub)set of "unique" points from an input set, within epsilon
+ * @param {Vec2[]} ps - the input points
+ * @param {number} eps - an epsilon (used for numerical stability)
+ * @return {Vec2[]} - the unique points among the input set
+ */
+export function uniquePointsAmong(ps, eps=0.001) {
+	let unique = [];
+
+	ps.forEach(a => {
+		let isUnique = true;
+
+		unique.forEach(b => {
+			if (closeTo(a, b)) {
+				isUnique = false;
+			}
+		});
+
+		if (isUnique) {
+			unique.push(a);
+		}
+	});
+
+	return unique;
 }

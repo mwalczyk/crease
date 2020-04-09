@@ -56,7 +56,9 @@ var helpMessages = {
   LINE: 'Select two vertices to form an extended crease between them',
   LINE_SEGMENT: 'Select two vertices to form a crease between them',
   PERPENDICULAR: 'Select a vertex and a crease to form a perpendicular crease between them',
-  INCENTER: 'Select three vertices to form creases connecting each vertex to the incenter of the corresponding triangle'
+  INCENTER: 'Select three vertices to form creases connecting each vertex to the incenter of the corresponding triangle',
+  DELETE_VERTEX: 'Delete a single vertex and all incident creases',
+  DELETE_CREASE: 'Delete a single crease'
 };
 var selection = {
   'select': null,
@@ -64,15 +66,15 @@ var selection = {
   'line-segment': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 2)], helpMessages.LINE_SEGMENT),
   'perpendicular': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 1), new _selection.SelectionGroup('crease', 1)], helpMessages.PERPENDICULAR),
   'incenter': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 3)], helpMessages.INCENTER),
-  'delete-vertex': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 1)]),
-  'delete-crease': new _selection.OrderedSelection([new _selection.SelectionGroup('crease', 1)])
+  'delete-vertex': new _selection.OrderedSelection([new _selection.SelectionGroup('vertex', 1)], helpMessages.DELETE_VERTEX),
+  'delete-crease': new _selection.OrderedSelection([new _selection.SelectionGroup('crease', 1)], helpMessages.DELETE_CREASE)
 }; // Configuration for application start
 
 var tool = tools.LINE_SEGMENT;
 var gridDivsX = 11;
 var gridDivsY = 11;
-var gridPointDrawRadius = 3;
-var vertexDrawRadius = 5;
+var gridPointDrawRadius = 2;
+var vertexDrawRadius = 4;
 var creaseStrokeWidth = 4;
 /**
  * Applies a cyclic animation to a particular attribute of an SVG DOM element
@@ -103,11 +105,15 @@ function animateCycle(element, attrName, to) {
  */
 
 
-function notifySelectableElements() {// const className = selection[tool].currentGroup.className;
-  // const elements = s.selectAll('.' + className);
-  // s.selectAll('*').forEach(element => element.removeClass('selectable'));
-  // elements.forEach(element => element.addClass('selectable'));
-  // const timeTo = 50;
+function notifySelectableElements() {
+  var className = selection[tool].currentGroup.className;
+  var elements = s.selectAll('.' + className);
+  s.selectAll('*').forEach(function (element) {
+    return element.removeClass('selectable');
+  });
+  elements.forEach(function (element) {
+    return element.addClass('selectable');
+  }); // const timeTo = 50;
   // const timeFrom = 50;
   // switch (className) {
   // 	case 'vertex':
@@ -133,6 +139,24 @@ function removeSelectedClass() {
   s.selectAll('*').forEach(function (element) {
     return element.removeClass('selected');
   });
+}
+
+function findElementWithIndex(selector, index) {
+  var elements = Array.from(s.selectAll(selector));
+  return elements.find(function (element) {
+    return element.data('index') === index;
+  });
+}
+
+function removeElementWithIndex(selector, index) {
+  var maybeElement = findElementWithIndex(selector, index);
+
+  if (maybeElement !== undefined) {
+    maybeElement.remove();
+    return true;
+  }
+
+  return false;
 }
 
 function getBBoxCorners(element) {
@@ -169,7 +193,9 @@ function operate() {
       if (intersection !== null) {
         intersections.push(intersection);
       }
-    }); // Filter out intersections that lie outside the paper's boundary
+    }); // Drawing a line exactly along the diagonal results in duplicate points of intersection
+
+    intersections = geom.uniquePointsAmong(intersections); // Filter out intersections that lie outside the paper's boundary
 
     intersections = intersections.filter(function (intersection) {
       return Snap.path.isPointInsideBBox(paper.getBBox(), intersection.x, intersection.y);
@@ -216,7 +242,8 @@ function checkSelectionStatus() {
     operate(); // Clear the selection group and deselect all SVG elements
 
     selection[tool].clear();
-    removeSelectedClass();
+    removeSelectedClass(); // Animate any elements that may now be selectable
+
     notifySelectableElements();
   }
 }
@@ -275,36 +302,6 @@ var callbackVertexHoverExit = function callbackVertexHoverExit() {
     'r': vertexDrawRadius * 1.00
   });
 };
-
-var callbackCreaseHoverEnter = function callbackCreaseHoverEnter() {
-  this.attr({
-    strokeWidth: 8
-  });
-};
-
-var callbackCreaseHoverExit = function callbackCreaseHoverExit() {
-  this.attr({
-    strokeWidth: 4
-  });
-};
-
-function findElementWithIndex(selector, index) {
-  var elements = Array.from(s.selectAll(selector));
-  return elements.find(function (element) {
-    return element.data('index') === index;
-  });
-}
-
-function removeElementWithIndex(selector, index) {
-  var maybeElement = findElementWithIndex(selector, index);
-
-  if (maybeElement !== undefined) {
-    maybeElement.remove();
-    return true;
-  }
-
-  return false;
-}
 /**
  * Adds a new crease to the paper, modifying the underlying planar graph as necessary
  * @param {Vec2} a - the coordinates of the first endpoint of the crease
@@ -332,7 +329,7 @@ function addCrease(a, b) {
   });
   edgeIndices.forEach(function (index) {
     return drawCrease(index);
-  }); // return edgeIndex? - see `addVertex`
+  });
 }
 
 function removeCrease(element) {
@@ -377,16 +374,17 @@ function drawCrease(index) {
   svg.addClass('crease');
   svg.data('index', index);
   svg.click(callbackClickSelectable);
-  svg.hover(callbackCreaseHoverEnter, callbackCreaseHoverExit);
   svg.append(Snap.parse("<title>Edge: ".concat(index, "</title>"))); // Add a "right-click" event listener
 
   svg.node.addEventListener('contextmenu', callbackCreaseDoubleClicked.bind(svg)); // TODO: does Snap support z-ordering at all?
 
-  var existingSVGvertices = s.selectAll('.vertex');
+  var svgVertices = s.selectAll('.vertex');
 
-  if (existingSVGvertices.length > 0) {
-    svg.insertBefore(existingSVGvertices[0]);
+  if (svgVertices.length > 0) {
+    svg.insertBefore(svgVertices[0]);
   }
+
+  return svg;
 }
 /**
  * Adds a new vertex (reference point) to the paper, modifying the underlying planar graph as necessary
@@ -411,8 +409,14 @@ function addVertex(p) {
 
 function removeVertex(element) {
   // Grab the index of the graph node that this vertex corresponds to
-  var targetIndex = element.data('index'); // Removing a node results in a list of node / edge indices that have changed - note that some of
+  var targetIndex = element.data('index');
+
+  if (targetIndex === undefined) {
+    console.log('Attempting to delete a grid reference point - ignoring');
+    return;
+  } // Removing a node results in a list of node / edge indices that have changed - note that some of
   // these may correspond to nodes / edges that were deleted
+
 
   var _g$removeNode = g.removeNode(targetIndex),
       _g$removeNode2 = _slicedToArray(_g$removeNode, 2),
@@ -451,55 +455,28 @@ function drawVertex(index) {
   svg.addClass('vertex');
   svg.data('index', index);
   svg.click(callbackClickSelectable);
-  svg.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
+  svg.hover(callbackVertexHoverEnter, callbackVertexHoverExit); // These can't be animated with CSS
+
   svg.append(Snap.parse("<title>Vertex: ".concat(index, "</title>")));
+  return svg;
 }
 
 function drawTooltip(x, y, text, padding) {
   // First, create the text element
-  var svgEscText = s.text(x, y, text);
-  svgEscText.attr({
+  var svgText = s.text(x, y, text);
+  svgText.attr({
     fontFamily: 'Sans-Serif',
-    fontSize: '12px'
+    fontSize: '10px'
   });
-  svgEscText.addClass('tool-tip'); // Create the rectangular background behind the text
+  svgText.addClass('tool-tip'); // Then, create the rectangular background behind the text
 
-  var svgEscBackground = s.rect(svgEscText.getBBox().x - padding * 0.5, svgEscText.getBBox().y - padding * 0.5, svgEscText.getBBox().width + padding, svgEscText.getBBox().height + padding);
-  svgEscBackground.attr({
+  var svgBackground = s.rect(svgText.getBBox().x - padding * 0.5, svgText.getBBox().y - padding * 0.5, svgText.getBBox().width + padding, svgText.getBBox().height + padding);
+  svgBackground.attr({
     rx: '2px',
     ry: '2px'
   });
-  svgEscBackground.addClass('tool-tip-background');
-  svgEscBackground.insertBefore(svgEscText);
-}
-
-function setupCanvas() {
-  var gridSizeX = w / 2;
-  var gridSizeY = h / 2;
-  var paperCenterX = gridSizeX;
-  var paperCenterY = gridSizeY; // TODO: this is done so that when we calculate line intersections with the raw edges
-  // of the paper, we can rule out intersection points that lie outside of the paper 
-
-  var paperPadX = 0.5; // gridSizeX / (gridDivsX - 1);
-
-  var paperPadY = 0.5; // gridSizeY / (gridDivsY - 1);
-
-  var svgBackgroud = s.rect(0, 0, w, h);
-  svgBackgroud.addClass('background');
-  var svgPaper = s.rect(paperCenterX - gridSizeX * 0.5 - paperPadX * 0.5, paperCenterY - gridSizeY * 0.5 - paperPadY * 0.5, gridSizeX + paperPadX, gridSizeY + paperPadY);
-  svgPaper.addClass('paper');
-
-  for (var y = 0; y < gridDivsY; y++) {
-    for (var x = 0; x < gridDivsX; x++) {
-      var percentX = x / (gridDivsX - 1);
-      var percentY = y / (gridDivsY - 1);
-      var posX = percentX * gridSizeX + paperCenterX / 2;
-      var posY = percentY * gridSizeY + paperCenterY / 2;
-      var svgGridPoint = s.circle(posX, posY, gridPointDrawRadius);
-      svgGridPoint.addClass('vertex');
-      svgGridPoint.click(callbackClickSelectable);
-    }
-  }
+  svgBackground.addClass('tool-tip-background');
+  svgBackground.insertBefore(svgText);
 }
 
 function updateToolTip() {
@@ -510,12 +487,53 @@ function updateToolTip() {
   s.selectAll('.tool-tip-background').forEach(function (element) {
     return element.remove();
   });
-  var help = selection[tool].help;
-  drawTooltip(30, h - 30, help, 20);
-} // Add event listeners to tool icons
+  var help = selection[tool].help; // Add the new tool tip
+
+  var x = 30;
+  var y = h - 30;
+  var padding = 20;
+  drawTooltip(x, y, help, padding);
+}
+
+function setupCanvas() {
+  // The paper is a percentage of the total canvas size
+  var gridSizeX = w * 0.75;
+  var gridSizeY = h * 0.75;
+  var paperCenterX = w * 0.5;
+  var paperCenterY = h * 0.5; // TODO: this is done so that when we calculate line intersections with the raw edges
+  // of the paper, we can rule out intersection points that lie outside of the paper 
+
+  var paperPadX = 0.5; // gridSizeX / (gridDivsX - 1);
+
+  var paperPadY = 0.5; // gridSizeY / (gridDivsY - 1);
+
+  var svgBackgroud = s.rect(0, 0, w, h);
+  svgBackgroud.addClass('background');
+  var shadow = s.filter(Snap.filter.shadow(20, 20, 0.2, 'black', 0.0625));
+  var svgPaper = s.rect(paperCenterX - gridSizeX * 0.5 - paperPadX * 0.5, paperCenterY - gridSizeY * 0.5 - paperPadY * 0.5, gridSizeX + paperPadX, gridSizeY + paperPadY);
+  svgPaper.attr({
+    filter: shadow
+  });
+  svgPaper.addClass('paper');
+
+  for (var y = 0; y < gridDivsY; y++) {
+    for (var x = 0; x < gridDivsX; x++) {
+      var percentX = x / (gridDivsX - 1);
+      var percentY = y / (gridDivsY - 1);
+      var posX = percentX * gridSizeX + paperCenterX - gridSizeX * 0.5;
+      var posY = percentY * gridSizeY + paperCenterY - gridSizeY * 0.5;
+      var svgGridPoint = s.circle(posX, posY, gridPointDrawRadius);
+      svgGridPoint.addClass('vertex');
+      svgGridPoint.click(callbackClickSelectable);
+    }
+  }
+} // The DOM elements corresponding to all of the tool icons (line, line segment, perpendicular, etc.)
 
 
 var toolIcons = Array.from(document.getElementsByClassName('tool-icon'));
+/**
+ * Removes the class "selected" from all existing SVG elements
+ */
 
 function deselectAllIcons() {
   toolIcons.forEach(function (element) {
@@ -530,29 +548,45 @@ toolIcons.forEach(function (element) {
   }
 
   element.addEventListener('click', function () {
-    // Deselect the previous tool icon
+    // Deselect the previous tool icon and select this one
     deselectAllIcons();
-    this.classList.add('selected'); // Switch tools
+    this.classList.add('selected'); // Switch tools - sanity check below
 
     tool = this.getAttribute('op');
-    console.log("Switched to tool: ".concat(tool));
-    selection[tool].clear();
-    notifySelectableElements();
+
+    if (!Object.keys(selection).includes(tool)) {
+      console.error("No tool with operation ".concat(tool, " found"));
+    } else {
+      console.log("Switched to tool: ".concat(tool));
+    } // Clear out the current selection
+
+
+    selection[tool].clear(); // Remove the "selected" class from all objects, as a selection could have been in progress
+
+    removeSelectedClass(); // Make new objects selectable
+
+    notifySelectableElements(); // Notify the user with a tool tip
+
     updateToolTip();
   });
 });
 document.addEventListener('keydown', function (event) {
-  if (event.keyCode === 13) {
+  var keyEnter = 13;
+  var keyG = 71;
+  var keyEsc = 27;
+
+  if (event.keyCode === keyEnter) {
     // Print the planar graph
     console.log('Nodes:', g.nodes);
     console.log('Edges:', g.edges);
-  } else if (event.keyCode === 71) {
+  } else if (event.keyCode === keyG) {
     // Hide or show all vertices
     s.selectAll('.vertex').forEach(function (element) {
       var showOrHide = showOrHide === undefined ? element.attr('display') === 'none' : !!showOrHide;
       element.attr('display', showOrHide ? '' : 'none');
     });
-  } else if (event.keyCode === 27) {
+  } else if (event.keyCode === keyEsc) {
+    // Simple undo
     var removed = selection[tool].maybePop();
 
     if (removed !== undefined) {
@@ -562,6 +596,7 @@ document.addEventListener('keydown', function (event) {
 }); // Start the application
 
 setupCanvas();
+notifySelectableElements();
 
 },{"./src/geometry.js":4,"./src/graph.js":5,"./src/math.js":6,"./src/selection.js":7,"snapsvg":3}],2:[function(require,module,exports){
 // Copyright (c) 2017 Adobe Systems Incorporated. All rights reserved.
@@ -9646,6 +9681,7 @@ exports.findClosestTo = findClosestTo;
 exports.closeTo = closeTo;
 exports.getLineEquation = getLineEquation;
 exports.calculateLineIntersection = calculateLineIntersection;
+exports.uniquePointsAmong = uniquePointsAmong;
 
 var _math = require("./math.js");
 
@@ -9782,6 +9818,16 @@ function getLineEquation(a, b) {
   var intercept = a.y - slope * a.x;
   return [slope, intercept];
 }
+/**
+ * Calculates the point of intersection between two infinite lines
+ * @param {Vec2} a - the first point on the first line
+ * @param {Vec2} b - the second point on the first line
+ * @param {Vec2} c - the first point on the second line
+ * @param {Vec2} d - the second point on the second line
+ * @param {number} eps - an epsilon (used for numerical stability)
+ * @return {Vec2} - the point of intersection (or null if no intersection is found)
+ */
+
 
 function calculateLineIntersection(a, b, c, d) {
   var eps = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 0.001;
@@ -9801,6 +9847,31 @@ function calculateLineIntersection(a, b, c, d) {
   }
 
   return null;
+}
+/**
+ * Calculates the (sub)set of "unique" points from an input set, within epsilon
+ * @param {Vec2[]} ps - the input points
+ * @param {number} eps - an epsilon (used for numerical stability)
+ * @return {Vec2[]} - the unique points among the input set
+ */
+
+
+function uniquePointsAmong(ps) {
+  var eps = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0.001;
+  var unique = [];
+  ps.forEach(function (a) {
+    var isUnique = true;
+    unique.forEach(function (b) {
+      if (closeTo(a, b)) {
+        isUnique = false;
+      }
+    });
+
+    if (isUnique) {
+      unique.push(a);
+    }
+  });
+  return unique;
 }
 
 },{"./math.js":6}],5:[function(require,module,exports){
@@ -9885,6 +9956,18 @@ var PlanarGraph = /*#__PURE__*/function () {
       return this.edges[index];
     }
     /**
+     * @param {number} index - a node index
+     * @return {number} - the number of edges that touch (i.e. include) the specified node
+     */
+
+  }, {
+    key: "numberOfEdgesIncidentTo",
+    value: function numberOfEdgesIncidentTo(index) {
+      return this.edges.filter(function (edge) {
+        return edge.includes(index);
+      }).length;
+    }
+    /**
      * Attempts to add a new node to the graph at coordinates <node.x, node.y>
      * @param {Vec2} node - the position of the new node
      * @param {number} eps - an epsilon (used for numerical stability)
@@ -9956,6 +10039,7 @@ var PlanarGraph = /*#__PURE__*/function () {
     value: function splitEdgesAtNode(targetIndex) {
       var _this = this;
 
+      var eps = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0.001;
       var changedEdges = [];
       this.edges.forEach(function (edge, index) {
         var onEdge = geom.isOnLineSegment(_this.nodes[edge[0]], _this.nodes[edge[1]], _this.nodes[targetIndex]);
@@ -9982,7 +10066,7 @@ var PlanarGraph = /*#__PURE__*/function () {
      * Splits any edges that intersect with the specified edge
      * @param {number} targetIndex - the index of the edge to split along
      * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of 
-     *		any newly created (or modified) nodes while the second contains the indices of any newly 
+     *		any newly created (or modified) nodes, while the second contains the indices of any newly 
      *		created (or modified) edges
      */
 
@@ -9991,6 +10075,7 @@ var PlanarGraph = /*#__PURE__*/function () {
     value: function splitEdgesAlongEdge(targetIndex) {
       var _this2 = this;
 
+      var eps = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0.001;
       var changedNodes = [];
       var changedEdges = []; // An array containing all of the points of intersections
 
@@ -10001,30 +10086,51 @@ var PlanarGraph = /*#__PURE__*/function () {
           var intersection = geom.calculateLineSegmentIntersection(_this2.nodes[edge[0]], _this2.nodes[edge[1]], _this2.nodes[_this2.edges[targetIndex][0]], _this2.nodes[_this2.edges[targetIndex][1]]);
 
           if (intersection) {
-            intersections.push(intersection); //console.log(`Found intersection between edge ${targetIndex} and edge ${index}`);
+            intersections.push(intersection);
+            console.log("Found intersection between edge ".concat(targetIndex, " and edge ").concat(index));
           }
         }
-      });
-      intersections.forEach(function (intersection) {
-        // Add a new node at the point of intersection, which returns a node index and a list 
-        // of all of the edge indices that changed as a result of the additional node
-        var _this2$addNode = _this2.addNode(intersection),
-            _this2$addNode2 = _slicedToArray(_this2$addNode, 2),
-            nodeIndex = _this2$addNode2[0],
-            edgeIndices = _this2$addNode2[1];
+      }); // Get rid of duplicate intersection points - this happens, for example, when the target
+      // edge passes through a node that is the shared endpoint of multiple neighbor edges
 
-        changedNodes.push(nodeIndex);
-        changedEdges = changedEdges.concat(edgeIndices);
+      intersections = geom.uniquePointsAmong(intersections);
+      console.log("Found ".concat(intersections.length, " unique intersections"));
+      intersections.forEach(function (intersection) {
+        // One annoying edge-case we have to consider here is, what happens when the point of 
+        // intersection coincides (i.e. overlaps with) an existing node? In this case, we want
+        // to split any offending edges along the existing node and continue. Otherwise, the 
+        // point of intersection should be considered a new node, so we add it and split along
+        // any edges, as necessary.
+        var _geom$findClosestTo3 = geom.findClosestTo(intersection, _this2.nodes),
+            _geom$findClosestTo4 = _slicedToArray(_geom$findClosestTo3, 2),
+            index = _geom$findClosestTo4[0],
+            distance = _geom$findClosestTo4[1];
+
+        if (distance < eps) {
+          console.log('Point of intersection coincides with an existing node');
+          changedEdges = changedEdges.concat(_this2.splitEdgesAtNode(index));
+        } else {
+          // Add a new node at the point of intersection, which returns a node index and a list 
+          // of all of the edge indices that changed as a result of the additional node
+          var _this2$addNode = _this2.addNode(intersection),
+              _this2$addNode2 = _slicedToArray(_this2$addNode, 2),
+              nodeIndex = _this2$addNode2[0],
+              edgeIndices = _this2$addNode2[1];
+
+          changedNodes.push(nodeIndex);
+          changedEdges = changedEdges.concat(edgeIndices);
+        }
       });
       return [changedNodes, changedEdges];
     }
-  }, {
-    key: "numberOfEdgesIncidentTo",
-    value: function numberOfEdgesIncidentTo(index) {
-      return this.edges.filter(function (edge) {
-        return edge.includes(index);
-      }).length;
-    }
+    /**
+     * Removes an edge from the planar graph, potentially removing any stray nodes as well
+     * @param {number} targetIndex - the index of the edge to remove
+     * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of
+     * 		any removed (or modified) nodes, while the second contains the indices of any removed 
+     *		(or modified) edges
+     */
+
   }, {
     key: "removeEdge",
     value: function removeEdge(targetIndex) {
@@ -10060,6 +10166,15 @@ var PlanarGraph = /*#__PURE__*/function () {
 
       return [changedNodes, changedEdges];
     }
+    /**
+     * Removes a node and any incident edges from the planar graph, potentially removing any extra  
+     * stray nodes as well
+     * @param {number} targetIndex - the index of the node to remove
+     * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of
+     * 		any removed (or modified) nodes, while the second contains the indices of any removed 
+     *		(or modified) edges
+     */
+
   }, {
     key: "removeNode",
     value: function removeNode(targetIndex) {
@@ -10136,7 +10251,6 @@ var PlanarGraph = /*#__PURE__*/function () {
           _this3.edges[index][1] = remappedNodes[indexB];
         }
       });
-      console.log('Edges after update:', this.edges);
       return [changedNodes, changedEdges];
     }
     /**

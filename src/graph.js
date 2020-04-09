@@ -43,6 +43,14 @@ export class PlanarGraph {
 	}
 
 	/**
+	 * @param {number} index - a node index
+	 * @return {number} - the number of edges that touch (i.e. include) the specified node
+	 */
+	numberOfEdgesIncidentTo(index) {
+		return this.edges.filter(edge => edge.includes(index)).length;
+	}
+
+	/**
 	 * Attempts to add a new node to the graph at coordinates <node.x, node.y>
 	 * @param {Vec2} node - the position of the new node
 	 * @param {number} eps - an epsilon (used for numerical stability)
@@ -98,7 +106,7 @@ export class PlanarGraph {
 	 * @param {number} targetIndex - the index of the node to split along
 	 * @return {number[]} - the indices of any newly created (or modified) edges
 	 */
-	splitEdgesAtNode(targetIndex) {
+	splitEdgesAtNode(targetIndex, eps=0.001) {
 		let changedEdges = [];
 
 		this.edges.forEach((edge, index) => {
@@ -129,10 +137,10 @@ export class PlanarGraph {
 	 * Splits any edges that intersect with the specified edge
 	 * @param {number} targetIndex - the index of the edge to split along
 	 * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of 
-	 *		any newly created (or modified) nodes while the second contains the indices of any newly 
+	 *		any newly created (or modified) nodes, while the second contains the indices of any newly 
 	 *		created (or modified) edges
 	 */
-	splitEdgesAlongEdge(targetIndex) {
+	splitEdgesAlongEdge(targetIndex, eps=0.001) {
 		let changedNodes = [];
 		let changedEdges = [];
 
@@ -151,27 +159,48 @@ export class PlanarGraph {
 				);
 				if (intersection) {
 					intersections.push(intersection);
-					//console.log(`Found intersection between edge ${targetIndex} and edge ${index}`);
+					console.log(`Found intersection between edge ${targetIndex} and edge ${index}`);
 				}
 			}
 		});
 
-		intersections.forEach(intersection => {
-			// Add a new node at the point of intersection, which returns a node index and a list 
-			// of all of the edge indices that changed as a result of the additional node
-			const [nodeIndex, edgeIndices] = this.addNode(intersection);
+		// Get rid of duplicate intersection points - this happens, for example, when the target
+		// edge passes through a node that is the shared endpoint of multiple neighbor edges
+		intersections = geom.uniquePointsAmong(intersections);
+		console.log(`Found ${intersections.length} unique intersections`);
 
-			changedNodes.push(nodeIndex);
-			changedEdges = changedEdges.concat(edgeIndices);
+		intersections.forEach(intersection => {
+			// One annoying edge-case we have to consider here is, what happens when the point of 
+			// intersection coincides (i.e. overlaps with) an existing node? In this case, we want
+			// to split any offending edges along the existing node and continue. Otherwise, the 
+			// point of intersection should be considered a new node, so we add it and split along
+			// any edges, as necessary.
+			const [index, distance] = geom.findClosestTo(intersection, this.nodes);
+
+			if (distance < eps) {
+				console.log('Point of intersection coincides with an existing node');
+				changedEdges = changedEdges.concat(this.splitEdgesAtNode(index));
+			} else {
+				// Add a new node at the point of intersection, which returns a node index and a list 
+				// of all of the edge indices that changed as a result of the additional node
+				const [nodeIndex, edgeIndices] = this.addNode(intersection);
+
+				changedNodes.push(nodeIndex);
+				changedEdges = changedEdges.concat(edgeIndices);
+			}
 		});
 
 		return [changedNodes, changedEdges];
 	}
 
-	numberOfEdgesIncidentTo(index) {
-		return this.edges.filter(edge => edge.includes(index)).length;
-	}
 
+	/**
+	 * Removes an edge from the planar graph, potentially removing any stray nodes as well
+	 * @param {number} targetIndex - the index of the edge to remove
+	 * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of
+	 * 		any removed (or modified) nodes, while the second contains the indices of any removed 
+	 *		(or modified) edges
+	 */
 	removeEdge(targetIndex) {
 		if (targetIndex < 0 || targetIndex > this.edgeCount) {
 			console.error('Attempting to remove an edge at an invalid index');
@@ -205,6 +234,14 @@ export class PlanarGraph {
 		return [changedNodes, changedEdges];	
 	}
 
+	/**
+	 * Removes a node and any incident edges from the planar graph, potentially removing any extra  
+	 * stray nodes as well
+	 * @param {number} targetIndex - the index of the node to remove
+	 * @return {number[][]} - an array containing two sub-arrays: the first contains the indices of
+	 * 		any removed (or modified) nodes, while the second contains the indices of any removed 
+	 *		(or modified) edges
+	 */
 	removeNode(targetIndex) {
 		if (targetIndex < 0 || targetIndex > this.nodeCount) {
 			console.error('Attempting to remove a node at an invalid index');
@@ -275,7 +312,6 @@ export class PlanarGraph {
 			}
 
 		});
-		console.log('Edges after update:', this.edges)
 		
 		return [changedNodes, changedEdges];	
 	}

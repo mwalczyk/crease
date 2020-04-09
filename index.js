@@ -36,7 +36,9 @@ const helpMessages = {
 	LINE: 'Select two vertices to form an extended crease between them',
 	LINE_SEGMENT: 'Select two vertices to form a crease between them',
 	PERPENDICULAR: 'Select a vertex and a crease to form a perpendicular crease between them',
-	INCENTER: 'Select three vertices to form creases connecting each vertex to the incenter of the corresponding triangle'
+	INCENTER: 'Select three vertices to form creases connecting each vertex to the incenter of the corresponding triangle',
+	DELETE_VERTEX: 'Delete a single vertex and all incident creases',
+	DELETE_CREASE: 'Delete a single crease'
 };
 
 let selection = {
@@ -45,16 +47,16 @@ let selection = {
 	'line-segment': new OrderedSelection([new SelectionGroup('vertex', 2)], helpMessages.LINE_SEGMENT),
 	'perpendicular': new OrderedSelection([new SelectionGroup('vertex', 1), new SelectionGroup('crease', 1)], helpMessages.PERPENDICULAR),
 	'incenter': new OrderedSelection([new SelectionGroup('vertex', 3)], helpMessages.INCENTER),
-	'delete-vertex': new OrderedSelection([new SelectionGroup('vertex', 1)]),
-	'delete-crease': new OrderedSelection([new SelectionGroup('crease', 1)])
+	'delete-vertex': new OrderedSelection([new SelectionGroup('vertex', 1)], helpMessages.DELETE_VERTEX),
+	'delete-crease': new OrderedSelection([new SelectionGroup('crease', 1)], helpMessages.DELETE_CREASE)
 };
 
 // Configuration for application start
 let tool = tools.LINE_SEGMENT;
 const gridDivsX = 11;
 const gridDivsY = 11;
-const gridPointDrawRadius = 3;
-const vertexDrawRadius = 5;
+const gridPointDrawRadius = 2;
+const vertexDrawRadius = 4;
 const creaseStrokeWidth = 4;
 
 /**
@@ -83,11 +85,11 @@ function animateCycle(element, attrName, to, timeTo=50, timeFrom=50) {
  * Animates the group of objects that are currently selectable
  */
 function notifySelectableElements() {
-	// const className = selection[tool].currentGroup.className;
-	// const elements = s.selectAll('.' + className);
+	const className = selection[tool].currentGroup.className;
+	const elements = s.selectAll('.' + className);
 	
-	// s.selectAll('*').forEach(element => element.removeClass('selectable'));
-	// elements.forEach(element => element.addClass('selectable'));
+	s.selectAll('*').forEach(element => element.removeClass('selectable'));
+	elements.forEach(element => element.addClass('selectable'));
 
 	// const timeTo = 50;
 	// const timeFrom = 50;
@@ -117,6 +119,20 @@ function removeSelectedClass() {
 	s.selectAll('*').forEach(element => element.removeClass('selected'));
 }
 
+function findElementWithIndex(selector, index) {
+	const elements = Array.from(s.selectAll(selector));
+	return elements.find(element => element.data('index') === index);
+}
+
+function removeElementWithIndex(selector, index) {
+	const maybeElement = findElementWithIndex(selector, index);
+	if (maybeElement !== undefined) {
+		maybeElement.remove();
+		return true;
+	}
+	return false;
+}
+
 function getBBoxCorners(element) {
 	const ul = new Vec2(element.getBBox().cx - element.getBBox().width * 0.5,
 						element.getBBox().cy - element.getBBox().height * 0.5);
@@ -129,6 +145,9 @@ function getBBoxCorners(element) {
 
 	return [ul, ur, lr, ll];
 }
+
+
+
 
 function operate() {
 	if (tool === tools.LINE_SEGMENT) {
@@ -162,6 +181,9 @@ function operate() {
 				intersections.push(intersection);
 			}
 		});
+
+		// Drawing a line exactly along the diagonal results in duplicate points of intersection
+		intersections = geom.uniquePointsAmong(intersections);
 
 		// Filter out intersections that lie outside the paper's boundary
 		intersections = intersections.filter(intersection => Snap.path.isPointInsideBBox(paper.getBBox(), intersection.x, intersection.y));
@@ -218,6 +240,7 @@ function checkSelectionStatus() {
 		selection[tool].clear();
 		removeSelectedClass();
 
+		// Animate any elements that may now be selectable
 		notifySelectableElements();
 	}
 }
@@ -266,26 +289,8 @@ let callbackVertexHoverExit = function() {
 	this.attr({'r': vertexDrawRadius * 1.00});
 }
 
-let callbackCreaseHoverEnter = function() {
-	this.attr({strokeWidth: 8});
-}
-let callbackCreaseHoverExit = function() {
-	this.attr({strokeWidth: 4});
-}
 
-function findElementWithIndex(selector, index) {
-	const elements = Array.from(s.selectAll(selector));
-	return elements.find(element => element.data('index') === index);
-}
 
-function removeElementWithIndex(selector, index) {
-	const maybeElement = findElementWithIndex(selector, index);
-	if (maybeElement !== undefined) {
-		maybeElement.remove();
-		return true;
-	}
-	return false;
-}
 
 /**
  * Adds a new crease to the paper, modifying the underlying planar graph as necessary
@@ -305,8 +310,6 @@ function addCrease(a, b) {
 
 	nodeIndices.forEach(index => drawVertex(index));
 	edgeIndices.forEach(index => drawCrease(index));
-
-	// return edgeIndex? - see `addVertex`
 }
 
 function removeCrease(element) {
@@ -349,17 +352,18 @@ function drawCrease(index) {
 	svg.addClass('crease');
 	svg.data('index', index);
 	svg.click(callbackClickSelectable);
-	svg.hover(callbackCreaseHoverEnter, callbackCreaseHoverExit);
 	svg.append(Snap.parse(`<title>Edge: ${index}</title>`));
 
 	// Add a "right-click" event listener
 	svg.node.addEventListener('contextmenu', callbackCreaseDoubleClicked.bind(svg));
 
 	// TODO: does Snap support z-ordering at all?
-	const existingSVGvertices = s.selectAll('.vertex');
-	if (existingSVGvertices.length > 0) {
-		svg.insertBefore(existingSVGvertices[0]);
+	const svgVertices = s.selectAll('.vertex');
+	if (svgVertices.length > 0) {
+		svg.insertBefore(svgVertices[0]);
 	}
+
+	return svg;
 }
 
 /**
@@ -380,6 +384,10 @@ function addVertex(p) {
 function removeVertex(element) {
 	// Grab the index of the graph node that this vertex corresponds to
 	const targetIndex = element.data('index');
+	if (targetIndex === undefined) {
+		console.log('Attempting to delete a grid reference point - ignoring')
+		return;
+	}
 
 	// Removing a node results in a list of node / edge indices that have changed - note that some of
 	// these may correspond to nodes / edges that were deleted
@@ -412,39 +420,54 @@ function drawVertex(index) {
 	svg.addClass('vertex');
 	svg.data('index', index);
 	svg.click(callbackClickSelectable);
-	svg.hover(callbackVertexHoverEnter, callbackVertexHoverExit);
+	svg.hover(callbackVertexHoverEnter, callbackVertexHoverExit); // These can't be animated with CSS
 	svg.append(Snap.parse(`<title>Vertex: ${index}</title>`));
+
+	return svg;
 }
+
+
+
 
 function drawTooltip(x, y, text, padding) {
 	// First, create the text element
-	let svgEscText = s.text(x, y, text);
+	let svgText = s.text(x, y, text);
 
-	svgEscText.attr({
+	svgText.attr({
 		fontFamily: 'Sans-Serif',
-		fontSize: '12px'
-	})
-	svgEscText.addClass('tool-tip');
-
-	// Create the rectangular background behind the text
-	let svgEscBackground = s.rect(svgEscText.getBBox().x - padding * 0.5, 
-								  svgEscText.getBBox().y - padding * 0.5, 
-								  svgEscText.getBBox().width + padding, 
-								  svgEscText.getBBox().height + padding);
-	svgEscBackground.attr({
-		rx: '2px',
-		ry: '2px'
+		fontSize: '10px'
 	});
-	svgEscBackground.addClass('tool-tip-background');
+	svgText.addClass('tool-tip');
 
-    svgEscBackground.insertBefore(svgEscText);
+	// Then, create the rectangular background behind the text
+	let svgBackground = s.rect(svgText.getBBox().x - padding * 0.5, 
+							   svgText.getBBox().y - padding * 0.5, 
+							   svgText.getBBox().width + padding, 
+							   svgText.getBBox().height + padding);
+	svgBackground.attr({ rx: '2px', ry: '2px' });
+	svgBackground.addClass('tool-tip-background');
+    svgBackground.insertBefore(svgText);
+}
+
+function updateToolTip() {
+	// Remove any existing tool tip elements
+	s.selectAll('.tool-tip').forEach(element => element.remove());
+	s.selectAll('.tool-tip-background').forEach(element => element.remove());
+	const help = selection[tool].help;
+
+	// Add the new tool tip
+	const x = 30;
+	const y = h - 30;
+	const padding = 20;
+	drawTooltip(x, y, help, padding);
 }
 
 function setupCanvas() {
-	const gridSizeX = w / 2;
-	const gridSizeY = h / 2;
-	const paperCenterX = gridSizeX;
-	const paperCenterY = gridSizeY; 
+	// The paper is a percentage of the total canvas size
+	const gridSizeX = w * 0.75;
+	const gridSizeY = h * 0.75;
+	const paperCenterX = w * 0.5;
+	const paperCenterY = h * 0.5; 
 	
 	// TODO: this is done so that when we calculate line intersections with the raw edges
 	// of the paper, we can rule out intersection points that lie outside of the paper 
@@ -454,18 +477,20 @@ function setupCanvas() {
 	let svgBackgroud = s.rect(0, 0, w, h);
 	svgBackgroud.addClass('background');
 
+	const shadow = s.filter(Snap.filter.shadow(20, 20, 0.2, 'black', 0.0625));
 	let svgPaper = s.rect(paperCenterX - gridSizeX * 0.5 - paperPadX * 0.5,
 						  paperCenterY - gridSizeY * 0.5 - paperPadY * 0.5,
 						  gridSizeX + paperPadX,
 						  gridSizeY + paperPadY);
+	svgPaper.attr({ filter: shadow });
 	svgPaper.addClass('paper');
 
 	for (var y = 0; y < gridDivsY; y++) {
 		for (var x = 0; x < gridDivsX; x++) {
 			let percentX = x / (gridDivsX - 1);
 			let percentY = y / (gridDivsY - 1);
-			let posX = percentX * gridSizeX + paperCenterX / 2;
-			let posY = percentY * gridSizeY + paperCenterY / 2;
+			let posX = percentX * gridSizeX + paperCenterX - gridSizeX * 0.5;
+			let posY = percentY * gridSizeY + paperCenterY - gridSizeY * 0.5;
 			
 			let svgGridPoint = s.circle(posX, posY, gridPointDrawRadius);
 			svgGridPoint.addClass('vertex');
@@ -474,18 +499,15 @@ function setupCanvas() {
 	}
 }
 
-function updateToolTip() {
-	// Remove any existing tool tip elements
-	s.selectAll('.tool-tip').forEach(element => element.remove());
-	s.selectAll('.tool-tip-background').forEach(element => element.remove());
-	const help = selection[tool].help;
 
-	drawTooltip(30, h - 30, help, 20);
-}
 
-// Add event listeners to tool icons
+
+// The DOM elements corresponding to all of the tool icons (line, line segment, perpendicular, etc.)
 const toolIcons = Array.from(document.getElementsByClassName('tool-icon'));
 
+/**
+ * Removes the class "selected" from all existing SVG elements
+ */
 function deselectAllIcons() {
 	toolIcons.forEach(element => element.classList.remove('selected'));
 }
@@ -497,39 +519,60 @@ toolIcons.forEach(element => {
 	}
 
 	element.addEventListener('click', function() {
-		// Deselect the previous tool icon
+		// Deselect the previous tool icon and select this one
 		deselectAllIcons();
 		this.classList.add('selected');
 
-		// Switch tools
+		// Switch tools - sanity check below
 		tool = this.getAttribute('op');
-		console.log(`Switched to tool: ${tool}`)
+		if (!Object.keys(selection).includes(tool)) {
+			console.error(`No tool with operation ${tool} found`);
+		} else {
+			console.log(`Switched to tool: ${tool}`);
+		}
 
+		// Clear out the current selection
 		selection[tool].clear();
+
+		// Remove the "selected" class from all objects, as a selection could have been in progress
+		removeSelectedClass();
+
+		// Make new objects selectable
 		notifySelectableElements();
+
+		// Notify the user with a tool tip
 		updateToolTip();
 	});
 });
 
 document.addEventListener('keydown', function(event) {
-    if (event.keyCode === 13) {
+	const keyEnter = 13;
+	const keyG = 71;
+	const keyEsc = 27;
+
+    if (event.keyCode === keyEnter) {
     	// Print the planar graph
     	console.log('Nodes:', g.nodes);
     	console.log('Edges:', g.edges);
-    } else if (event.keyCode === 71) {
+
+    } else if (event.keyCode === keyG) {
     	// Hide or show all vertices
     	s.selectAll('.vertex').forEach(element => {
 			const showOrHide = showOrHide === undefined ? element.attr('display') === 'none' : !!showOrHide;
     		element.attr('display', (showOrHide ? '' : 'none'));
     	});
-    } else if (event.keyCode === 27) {
+
+    } else if (event.keyCode === keyEsc) {
+    	// Simple undo
     	const removed = selection[tool].maybePop();
     	if (removed !== undefined) {
     		removed.removeClass('selected');
     	}
+
     }
 });
 
+
 // Start the application
 setupCanvas();
-
+notifySelectableElements();

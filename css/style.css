@@ -1,21 +1,22 @@
 html, body { 
 	margin: 0; 
+	background-color: hsl(0, 0%, 22%);
 }
 
 .header {
 	text-align: center;
 	font-family: 'Heebo';
-  	font-size: 12px;
+  	font-size: 8px;
   	color: hsl(0, 0%, 88%);
 }
 
 .container {
-	display: inline-flex;
-	
+	display: flex;
 }
 
 .container.row {
 	flex-direction: row;
+	align-items: center;
 }
 
 .container.column {
@@ -25,7 +26,7 @@ html, body {
 }
 
 .item {
-	border: 0.075em hsl(0, 0%, 22%) solid;
+	border: 1px hsl(0, 0%, 22%) solid;
 }
 
 .tool-icon {
@@ -40,10 +41,6 @@ html, body {
 .tool-icon.selected .tool-background{
 	fill: hsl(217, 47%, 55%);
 	stroke: hsl(217, 47%, 55%);
-}
-
-#controls {
-	background-color: hsl(0, 0%, 22%);
 }
 
 svg .tool-tip {
@@ -61,34 +58,55 @@ svg .background {
 }
 
 svg .paper {
-	fill: hsl(0, 0%, 88%);
+	fill: hsl(210, 1%, 66%);
+	stroke-width: 2;
+	stroke: hsl(210, 1%, 56%);
 }
 
 svg .vertex {
-	fill: hsl(221, 12%, 60%);	
+	opacity: 0;
 }
 
 svg .vertex:hover {
-	fill: hsl(221, 12%, 50%);
+	
+}
+
+svg .vertex.selectable {
+	/* Black */
+	opacity: 1;
+	fill: hsl(0, 0%, 16%); 
+
+	/* Basically, some extra padding to make clicking easier */
+	stroke-width: 10;
+	stroke: hsl(0, 0%, 0%);
+	stroke-opacity: 0;
 }
 
 svg .vertex.selected {
-	fill: hsl(26, 100%, 70%);
+	/* Off-white */
+	opacity: 1;
+	fill: hsl(0, 0%, 89%); 
 }
 
-svg .vertex.selected:hover {
-	fill: hsl(26, 100%, 60%);
+/* Whenever a vertex is selected (or selectable) and the user hovers over it */
+svg .vertex.selected:hover, .vertex.selectable:hover {
+	
 }
+
+svg .expanded {
+	fill: hsl(0, 0%, 89%);
+}
+
 
 svg .crease {
-	stroke: hsl(240, 10%, 70%);
+	/* Black */
+	stroke-width: 2;
+	stroke: hsl(0, 0%, 16%); 
 	stroke-linecap: round;
-	stroke-width: 4;
 }
 
 svg .crease:hover {
-	stroke-width: 6;
-	fill: hsl(26, 100%, 60%);
+	stroke-width: 3;
 }
 
 svg .crease.valley {
@@ -107,6 +125,14 @@ svg .crease.mountain {
 
 svg .crease.mountain:hover { 
 	stroke: hsl(359, 36%, 35%);
+}
+
+svg .crease.selectable {
+	stroke-width: 4;
+}
+
+svg .crease.selectable:hover {
+	stroke-width: 5;
 }
 
 svg .crease.selected {
