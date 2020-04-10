@@ -1,13 +1,27 @@
-html, body { 
-	margin: 0; 
+html, body {
+
+	/*margin: 0; */
 	background-color: hsl(0, 0%, 22%);
+}
+
+#controls {
+}
+
+#graphics {
 }
 
 .header {
 	text-align: center;
-	font-family: 'Heebo';
-  	font-size: 8px;
-  	color: hsl(0, 0%, 88%);
+	font-family: 'Noto Sans';
+	font-size: 10px;
+	color: hsl(0, 0%, 88%);
+}
+
+p {
+	font-family: 'Noto Sans';
+	font-size: 10px;
+	color: hsl(0, 0%, 88%);
+	line-height: 50%;
 }
 
 .container {
@@ -22,23 +36,29 @@ html, body {
 .container.column {
 	flex-direction: column;
 	align-items: center;
-	/*border: 2em hsl(0, 0%, 22%) solid;*/
 }
 
 .item {
-	border: 1px hsl(0, 0%, 22%) solid;
+}
+
+/* Add margins between pairs of items */
+.item + .item {
+	margin-left: 1%;
 }
 
 .tool-icon {
-
 }
 
 .tool-icon:hover .tool-background {
+
+	/* Light gray */
 	fill: hsl(0, 0%, 25%);
 	stroke: hsl(0, 0%, 25%);
 }
 
-.tool-icon.selected .tool-background{
+.tool-icon.selected .tool-background {
+
+	/* Blue */
 	fill: hsl(217, 47%, 55%);
 	stroke: hsl(217, 47%, 55%);
 }
@@ -59,8 +79,6 @@ svg .background {
 
 svg .paper {
 	fill: hsl(210, 1%, 66%);
-	stroke-width: 2;
-	stroke: hsl(210, 1%, 56%);
 }
 
 svg .vertex {
@@ -68,40 +86,38 @@ svg .vertex {
 }
 
 svg .vertex:hover {
-	
 }
 
 svg .vertex.selectable {
-	/* Black */
-	opacity: 1;
-	fill: hsl(0, 0%, 16%); 
 
-	/* Basically, some extra padding to make clicking easier */
+	/* Dark gray */
+	opacity: 1;
+	fill: hsl(0, 0%, 16%);	/* Basically, some extra padding to make clicking easier */
 	stroke-width: 10;
 	stroke: hsl(0, 0%, 0%);
 	stroke-opacity: 0;
 }
 
 svg .vertex.selected {
+
 	/* Off-white */
 	opacity: 1;
-	fill: hsl(0, 0%, 89%); 
+	fill: hsl(0, 0%, 89%);
 }
 
 /* Whenever a vertex is selected (or selectable) and the user hovers over it */
 svg .vertex.selected:hover, .vertex.selectable:hover {
-	
 }
 
 svg .expanded {
 	fill: hsl(0, 0%, 89%);
 }
 
-
 svg .crease {
-	/* Black */
+
+	/* Dark gray */
 	stroke-width: 2;
-	stroke: hsl(0, 0%, 16%); 
+	stroke: hsl(0, 0%, 16%);
 	stroke-linecap: round;
 }
 
@@ -111,19 +127,19 @@ svg .crease:hover {
 
 svg .crease.valley {
 	stroke: hsl(217, 47%, 55%);
-	stroke-dasharray: 8;
+	stroke-dasharray: 4;
 }
 
-svg .crease.valley:hover { 
+svg .crease.valley:hover {
 	stroke: hsl(217, 47%, 45%);
 }
 
 svg .crease.mountain {
 	stroke: hsl(359, 36%, 45%);
-	stroke-dasharray: 18, 10, 1, 8, 1, 10;
+	stroke-dasharray: 12, 4, 1, 4, 1, 4;
 }
 
-svg .crease.mountain:hover { 
+svg .crease.mountain:hover {
 	stroke: hsl(359, 36%, 35%);
 }
 
@@ -140,16 +156,20 @@ svg .crease.selected {
 }
 
 @keyframes hideafter {
-  0% { 
-  	opacity: 0; 
-  }
-  10% {
-  	opacity: 1;
-  }
-  50% { 
-  	opacity: 1; 
-  }
-  100% { 
-  	opacity: 0; 
-  }
-} 
+	0% {
+		opacity: 0;
+	}
+
+	10% {
+		opacity: 1;
+	}
+
+	50% {
+		opacity: 1;
+	}
+
+	100% {
+		opacity: 0;
+	}
+
+}

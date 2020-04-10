@@ -334,7 +334,12 @@ let callbackVertexHoverExit = function() {
 }
 
 
-
+function updateStats() {
+	let vertexCount = s.selectAll('.vertex').length
+	let creaseCount = s.selectAll('.crease').length
+	document.getElementById('vertex-count').innerHTML = `Number of vertices: <strong>${g.nodeCount}</strong>`;
+	document.getElementById('crease-count').innerHTML = `Number of creases: <strong>${g.edgeCount}</strong>`;
+}
 
 /**
  * Adds a new crease to the paper, modifying the underlying planar graph as necessary
@@ -354,6 +359,8 @@ function addCrease(a, b) {
 
 	nodeIndices.forEach(index => drawVertex(index));
 	edgeIndices.forEach(index => drawCrease(index));
+
+	updateStats();
 }
 
 function removeCrease(element) {
@@ -396,7 +403,7 @@ function drawCrease(index) {
 	svg.addClass('crease');
 	svg.data('index', index);
 	svg.click(callbackClickSelectable);
-	svg.append(Snap.parse(`<title>Edge: ${index}</title>`));
+	svg.append(Snap.parse(`<title>Edge ${index}, connects vertices ${g.edges[index][0]} and ${g.edges[index][1]}</title>`));
 
 	// Add a "right-click" event listener
 	svg.node.addEventListener('contextmenu', callbackCreaseDoubleClicked.bind(svg));
@@ -421,6 +428,8 @@ function addVertex(p) {
 	// Draw the vertex and redraw any creases that may have changed as a result of the addition
 	drawVertex(nodeIndex);
 	edgeIndices.forEach(index => drawCrease(index));
+
+	updateStats();
 
 	return nodeIndex;
 }
@@ -465,7 +474,7 @@ function drawVertex(index) {
 	svg.data('index', index);
 	svg.click(callbackClickSelectable);
 	svg.hover(callbackVertexHoverEnter, callbackVertexHoverExit); // These can't be animated with CSS
-	svg.append(Snap.parse(`<title>Vertex: ${index}</title>`));
+	svg.append(Snap.parse(`<title>Vertex ${index}</title>`));
 
 	return svg;
 }

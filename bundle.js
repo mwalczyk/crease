@@ -349,6 +349,13 @@ var callbackVertexHoverExit = function callbackVertexHoverExit() {
     'r': vertexDrawRadius * 1.00
   });
 };
+
+function updateStats() {
+  var vertexCount = s.selectAll('.vertex').length;
+  var creaseCount = s.selectAll('.crease').length;
+  document.getElementById('vertex-count').innerHTML = "Number of vertices: <strong>".concat(g.nodeCount, "</strong>");
+  document.getElementById('crease-count').innerHTML = "Number of creases: <strong>".concat(g.edgeCount, "</strong>");
+}
 /**
  * Adds a new crease to the paper, modifying the underlying planar graph as necessary
  * @param {Vec2} a - the coordinates of the first endpoint of the crease
@@ -377,6 +384,7 @@ function addCrease(a, b) {
   edgeIndices.forEach(function (index) {
     return drawCrease(index);
   });
+  updateStats();
 }
 
 function removeCrease(element) {
@@ -421,7 +429,7 @@ function drawCrease(index) {
   svg.addClass('crease');
   svg.data('index', index);
   svg.click(callbackClickSelectable);
-  svg.append(Snap.parse("<title>Edge: ".concat(index, "</title>"))); // Add a "right-click" event listener
+  svg.append(Snap.parse("<title>Edge ".concat(index, ", connects vertices ").concat(g.edges[index][0], " and ").concat(g.edges[index][1], "</title>"))); // Add a "right-click" event listener
 
   svg.node.addEventListener('contextmenu', callbackCreaseDoubleClicked.bind(svg)); // TODO: does Snap support z-ordering at all?
 
@@ -451,6 +459,7 @@ function addVertex(p) {
   edgeIndices.forEach(function (index) {
     return drawCrease(index);
   });
+  updateStats();
   return nodeIndex;
 }
 
@@ -504,7 +513,7 @@ function drawVertex(index) {
   svg.click(callbackClickSelectable);
   svg.hover(callbackVertexHoverEnter, callbackVertexHoverExit); // These can't be animated with CSS
 
-  svg.append(Snap.parse("<title>Vertex: ".concat(index, "</title>")));
+  svg.append(Snap.parse("<title>Vertex ".concat(index, "</title>")));
   return svg;
 }
 
