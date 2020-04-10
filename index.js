@@ -4,6 +4,7 @@ import { Vec2 } from './src/math.js';
 import { SelectionGroup, OrderedSelection } from './src/selection.js';
 
 const snapsvg = require('snapsvg');
+const html2canvas = require('html2canvas');
 
 // Create a planar graph, which represents the crease pattern
 let g = new PlanarGraph();
@@ -25,7 +26,8 @@ const tools = {
 	SELECT: 'select',
 	LINE: 'line',
 	LINE_SEGMENT: 'line-segment',
-	PERPENDICULAR: 'perpendicular',
+	DROP_PERPENDICULAR: 'drop-perpendicular',
+	PERPENDICULAR_BISECTOR: 'perpendicular-bisector',
 	INCENTER: 'incenter',
 	DELETE_VERTEX: 'delete-vertex',
 	DELETE_CREASE: 'delete-crease'
@@ -35,7 +37,8 @@ const helpMessages = {
 	SELECT: 'Select an existing vertex or crease',
 	LINE: 'Select two vertices to form an extended crease between them',
 	LINE_SEGMENT: 'Select two vertices to form a crease between them',
-	PERPENDICULAR: 'Select a vertex and a crease to form a perpendicular crease between them',
+	DROP_PERPENDICULAR: 'Select a vertex and a crease to drop a perpendicular crease from the vertex to the selected crease',
+	PERPENDICULAR_BISECTOR: 'Select a pair of vertices to form the perpendicular bisector between them',
 	INCENTER: 'Select three vertices to form creases connecting each vertex to the incenter of the corresponding triangle',
 	DELETE_VERTEX: 'Delete a single vertex and all incident creases',
 	DELETE_CREASE: 'Delete a single crease'
@@ -45,10 +48,15 @@ let selection = {
 	'select': null,
 	'line': new OrderedSelection([new SelectionGroup('vertex', 2)], helpMessages.LINE),
 	'line-segment': new OrderedSelection([new SelectionGroup('vertex', 2)], helpMessages.LINE_SEGMENT),
-	'perpendicular': new OrderedSelection([new SelectionGroup('vertex', 1), new SelectionGroup('crease', 1)], helpMessages.PERPENDICULAR),
+	'drop-perpendicular': new OrderedSelection([new SelectionGroup('vertex', 1), new SelectionGroup('crease', 1)], helpMessages.DROP_PERPENDICULAR),
+	'perpendicular-bisector': new OrderedSelection([new SelectionGroup('vertex', 2)], helpMessages.PERPENDICULAR_BISECTOR),
 	'incenter': new OrderedSelection([new SelectionGroup('vertex', 3)], helpMessages.INCENTER),
 	'delete-vertex': new OrderedSelection([new SelectionGroup('vertex', 1)], helpMessages.DELETE_VERTEX),
 	'delete-crease': new OrderedSelection([new SelectionGroup('crease', 1)], helpMessages.DELETE_CREASE)
+};
+
+let files = {
+	SAVE: 'save'
 };
 
 // Configuration for application start
@@ -157,7 +165,6 @@ function operate() {
 				  new Vec2(vertices[1].getBBox().cx, vertices[1].getBBox().cy));
 
 	} else if (tool === tools.LINE) {
-
 		// Grab the SVG paper element and calculate its corners
 		const paper = s.select('.paper');
 		const [ul, ur, lr, ll] = getBBoxCorners(paper);
@@ -205,15 +212,52 @@ function operate() {
 			vertices.forEach(v => addCrease(new Vec2(v.getBBox().cx, v.getBBox().cy), incenter));
 		}
 
-	} else if (tool === tools.PERPENDICULAR) {
+	} else if (tool === tools.DROP_PERPENDICULAR) {
 		// Drop a perpendicular from the specified vertex to the specified crease
 		const vertices = selection[tool].groups[0].refs;
 		const creases = selection[tool].groups[1].refs;
-		let perp = geom.calculatePerpendicular(new Vec2(creases[0].attr().x1, creases[0].attr().y1), 
-										  	   new Vec2(creases[0].attr().x2, creases[0].attr().y2),
-										  	   new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy));
+		let perp = geom.calculatePerpendicularPoint(new Vec2(creases[0].attr().x1, creases[0].attr().y1), 
+										  	   		new Vec2(creases[0].attr().x2, creases[0].attr().y2),
+										  	   		new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy));
 
 		addCrease(new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy), perp);
+
+	} else if (tool === tools.PERPENDICULAR_BISECTOR) {
+		const vertices = selection[tool].groups[0].refs;
+		let [perp0, perp1] = geom.calculatePerpendicularBisector(new Vec2(vertices[0].getBBox().cx, vertices[0].getBBox().cy),
+																 new Vec2(vertices[1].getBBox().cx, vertices[1].getBBox().cy));
+
+		// Grab the SVG paper element and calculate its corners
+		const paper = s.select('.paper');
+		const [ul, ur, lr, ll] = getBBoxCorners(paper);
+		const rawEdges = [
+			[ul, ur],
+			[ur, lr],
+			[lr, ll],
+			[ll, ul]
+		];
+
+		// Find all of the points where this line intersects the paper's edges (there should only be 2)
+		let intersections = []; 
+		rawEdges.forEach(rawEdge => {
+			const intersection = geom.calculateLineIntersection(rawEdge[0], 
+													   		    rawEdge[1],
+													   		    perp0,
+													   		    perp1);
+			if (intersection !== null) {
+				intersections.push(intersection);
+			}
+		});
+
+		// Drawing a line exactly along the diagonal results in duplicate points of intersection
+		intersections = geom.uniquePointsAmong(intersections);
+
+		// Filter out intersections that lie outside the paper's boundary
+		intersections = intersections.filter(intersection => Snap.path.isPointInsideBBox(paper.getBBox(), intersection.x, intersection.y));
+		console.assert(intersections.length === 2);
+
+		// Add a crease that runs from intersection to intersection
+		addCrease(intersections[0], intersections[1]);	
 
 	} else if (tool === tools.DELETE_VERTEX) {
 		// Deletion only requires a reference to a single vertex
@@ -499,17 +543,32 @@ function setupCanvas() {
 	}
 }
 
+function handleFileAction(action) {
+	if (action === files.SAVE) {
 
+		html2canvas(document.querySelector("#svg")).then(canvas => {
+		    document.body.appendChild(canvas)
+
+		    var img = canvas.toDataURL("image/png");
+		    document.write('<img src="'+img+'"/>');
+		});
+
+	} else {
+		// ...load, etc.
+
+	}
+}
 
 
 // The DOM elements corresponding to all of the tool icons (line, line segment, perpendicular, etc.)
 const toolIcons = Array.from(document.getElementsByClassName('tool-icon'));
+const fileIcons = Array.from(document.getElementsByClassName('file-icon')); 
 
 /**
  * Removes the class "selected" from all existing SVG elements
  */
-function deselectAllIcons() {
-	toolIcons.forEach(element => element.classList.remove('selected'));
+function deselectAll(icons) {
+	icons.forEach(element => element.classList.remove('selected'));
 }
 
 toolIcons.forEach(element => {
@@ -520,7 +579,7 @@ toolIcons.forEach(element => {
 
 	element.addEventListener('click', function() {
 		// Deselect the previous tool icon and select this one
-		deselectAllIcons();
+		deselectAll(toolIcons);
 		this.classList.add('selected');
 
 		// Switch tools - sanity check below
@@ -542,6 +601,19 @@ toolIcons.forEach(element => {
 
 		// Notify the user with a tool tip
 		updateToolTip();
+	});
+});
+
+fileIcons.forEach(element => {
+
+	element.addEventListener('click', function() {
+		deselectAll(fileIcons);
+
+		// Save, load, etc.
+		let action = this.getAttribute('op');
+		
+		handleFileAction(action);
+		
 	});
 });
 

@@ -64,6 +64,10 @@ export class Vec2 {
 	sum() {
 		return this.x + this.y;
 	}
+
+	midpoint(other) {
+		return this.add(other).mul(0.5);
+	}
 }
 
 class Vec3 {}

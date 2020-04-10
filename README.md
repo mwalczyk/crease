@@ -42,6 +42,7 @@ Some other resources that were useful during the creation of this project:
 2. [Calculating Line Segment Intersections](https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect)
 3. [Calculating Triangle Incenters](https://www.mathopenref.com/coordincenter.html)
 4. [Calculating Line Intersections](https://rosettacode.org/wiki/Find_the_intersection_of_two_lines)
+5. [Calculating Perpendicular Bisectors](https://socratic.org/questions/how-do-you-find-the-equation-of-the-perpendicular-bisector-of-the-points-1-4-and)
 
 ### License
 [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/)

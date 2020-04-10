@@ -68,12 +68,30 @@ export function calculateLineSegmentIntersection(a, b, c, d) {
  * @param {Vec2} b - the end of the line segment
  * @param {Vec2} p - the point to drop a perpendicular from  
  */
-export function calculatePerpendicular(a, b, p) {
+export function calculatePerpendicularPoint(a, b, p) {
 	const numer = (b.y - a.y) * (p.x - a.x) - (b.x - a.x) * (p.y - a.y);
 	const denom = Math.pow(b.y - a.y, 2.0) + Math.pow(b.x - a.x, 2.0);
 	const k = numer / denom;
 
 	return new Vec2(p.x - k * (b.y - a.y), p.y + k * (b.x - a.x));
+}
+
+export function calculatePerpendicularBisector(a, b, offset=1.0) {
+	// First, calculate the midpoint of the line segment from a to b
+	const midpoint = a.midpoint(b);
+
+	// Then, calculate the slope of the line segment and the slope of the perpendicular
+	const slope = (b.y - a.y) / (b.x - a.x);
+	const slope_perpendicular = -1 / slope;
+	const intercept = midpoint.y - slope_perpendicular * midpoint.x; 
+
+	// Add a small offset in the x-direction (this is arbitrary)
+	const offsetPoint = midpoint.add(new Vec2(offset, 0.0));
+
+	const second = new Vec2(offsetPoint.x,
+							offsetPoint.x * slope_perpendicular + intercept);
+
+	return [midpoint, second];
 }
 
 /**
