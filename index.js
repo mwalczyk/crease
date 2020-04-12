@@ -509,9 +509,9 @@ function updateToolTip() {
 	const help = selection[tool].help;
 
 	// Add the new tool tip
-	const x = 30;
-	const y = h - 30;
-	const padding = 20;
+	const x = 15;
+	const y = h - 15;
+	const padding = 10;
 	drawTooltip(x, y, help, padding);
 }
 
@@ -554,13 +554,47 @@ function setupCanvas() {
 
 function handleFileAction(action) {
 	if (action === files.SAVE) {
+		// Clone the entire canvas and delete the background, paper, and vertices
+		let exportClone = s.clone();
+		exportClone.select('.background').remove();
+		exportClone.select('.paper').remove();
+		exportClone.selectAll('.tool-tip').forEach(element => element.remove());
+		exportClone.selectAll('.tool-tip-background').forEach(element => element.remove());
+		exportClone.selectAll('.vertex').forEach(element => element.remove());
 
-		html2canvas(document.querySelector("#svg")).then(canvas => {
-		    document.body.appendChild(canvas)
-
-		    var img = canvas.toDataURL("image/png");
-		    document.write('<img src="'+img+'"/>');
+		// Transfer CSS attributes to SVG attributes
+		exportClone.selectAll('.crease').forEach(element => {
+			if (element.hasClass('mountain')) {
+				element.attr({
+					strokeWidth: 2,
+					stroke: '#9c494b',
+					strokeDasharray: '12 4 1 4 1 4'
+				});
+			} else if (element.hasClass('valley')) {
+				element.attr({
+					strokeWidth: 2,
+					stroke: '#3d66a9',
+					strokeDasharray: '4'
+				});
+			} else {
+				element.attr({
+					strokeWidth: 2,
+					stroke: '#292929'
+				});
+			}
 		});
+
+		const fileName = "crease.svg";
+	
+		var url = "data:image/svg+xml;utf8," + encodeURIComponent(exportClone.toString());
+
+		var link = document.createElement("a");
+		link.download = fileName;
+		link.href = url;
+		link.click();
+
+		// Remove the clone
+		exportClone.remove();
 
 	} else {
 		// ...load, etc.
@@ -654,6 +688,32 @@ document.addEventListener('keydown', function(event) {
 });
 
 
+
 // Start the application
 setupCanvas();
 notifySelectableElements();
+
+let scale = 1.0;
+
+s.node.addEventListener('wheel', e => {
+	// Increment scale
+	scale += e.deltaY * -0.01;
+
+  	// Restrict scale
+  	scale = Math.min(Math.max(.125, scale), 4);
+
+  	// Create a new scaling matrix
+  	let matrix = new Snap.Matrix();
+  	matrix.scale(scale);
+
+  	// Apply
+  	console.log(s.children())
+  	s.children().forEach(element => {
+  		console.log(element)
+  		if (element.hasClass('vertex') || element.hasClass('crease')) {
+  			element.transform(matrix.toTransformString());
+  		}
+  	});
+})
+
+updateToolTip();

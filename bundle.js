@@ -545,9 +545,9 @@ function updateToolTip() {
   });
   var help = selection[tool].help; // Add the new tool tip
 
-  var x = 30;
-  var y = h - 30;
-  var padding = 20;
+  var x = 15;
+  var y = h - 15;
+  var padding = 10;
   drawTooltip(x, y, help, padding);
 }
 
@@ -587,11 +587,48 @@ function setupCanvas() {
 
 function handleFileAction(action) {
   if (action === files.SAVE) {
-    html2canvas(document.querySelector("#svg")).then(function (canvas) {
-      document.body.appendChild(canvas);
-      var img = canvas.toDataURL("image/png");
-      document.write('<img src="' + img + '"/>');
+    // Clone the entire canvas and delete the background, paper, and vertices
+    var exportClone = s.clone();
+    exportClone.select('.background').remove();
+    exportClone.select('.paper').remove();
+    exportClone.selectAll('.tool-tip').forEach(function (element) {
+      return element.remove();
     });
+    exportClone.selectAll('.tool-tip-background').forEach(function (element) {
+      return element.remove();
+    });
+    exportClone.selectAll('.vertex').forEach(function (element) {
+      return element.remove();
+    }); // Transfer CSS attributes to SVG attributes
+
+    exportClone.selectAll('.crease').forEach(function (element) {
+      if (element.hasClass('mountain')) {
+        element.attr({
+          strokeWidth: 2,
+          stroke: '#9c494b',
+          strokeDasharray: '12 4 1 4 1 4'
+        });
+      } else if (element.hasClass('valley')) {
+        element.attr({
+          strokeWidth: 2,
+          stroke: '#3d66a9',
+          strokeDasharray: '4'
+        });
+      } else {
+        element.attr({
+          strokeWidth: 2,
+          stroke: '#292929'
+        });
+      }
+    });
+    var fileName = "crease.svg";
+    var url = "data:image/svg+xml;utf8," + encodeURIComponent(exportClone.toString());
+    var link = document.createElement("a");
+    link.download = fileName;
+    link.href = url;
+    link.click(); // Remove the clone
+
+    exportClone.remove();
   } else {// ...load, etc.
   }
 } // The DOM elements corresponding to all of the tool icons (line, line segment, perpendicular, etc.)
@@ -673,6 +710,26 @@ document.addEventListener('keydown', function (event) {
 
 setupCanvas();
 notifySelectableElements();
+var scale = 1.0;
+s.node.addEventListener('wheel', function (e) {
+  // Increment scale
+  scale += e.deltaY * -0.01; // Restrict scale
+
+  scale = Math.min(Math.max(.125, scale), 4); // Create a new scaling matrix
+
+  var matrix = new Snap.Matrix();
+  matrix.scale(scale); // Apply
+
+  console.log(s.children());
+  s.children().forEach(function (element) {
+    console.log(element);
+
+    if (element.hasClass('vertex') || element.hasClass('crease')) {
+      element.transform(matrix.toTransformString());
+    }
+  });
+});
+updateToolTip();
 
 },{"./src/geometry.js":5,"./src/graph.js":6,"./src/math.js":7,"./src/selection.js":8,"html2canvas":3,"snapsvg":4}],2:[function(require,module,exports){
 // Copyright (c) 2017 Adobe Systems Incorporated. All rights reserved.

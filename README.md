@@ -34,7 +34,7 @@ Some notes about usage.
 - [ ] 
 
 ## Credits
-This project was largely inspired by Jun Mitani's Java application, [ORIPA](http://mitani.cs.tsukuba.ac.jp/oripa/) and Erik Demaine's [FOLD](https://github.com/edemaine/fold). Erik Demaine's own crease pattern editor was also a very helpful reference, especially in terms of understanding the interop between SVG elements and planar graphs.
+This project was largely inspired by (and indebted to) Jun Mitani's Java application, [ORIPA](http://mitani.cs.tsukuba.ac.jp/oripa/) and Erik Demaine's [FOLD](https://github.com/edemaine/fold). Erik Demaine's own crease pattern editor was also a very helpful reference, especially in terms of understanding the interop between SVG elements and planar graphs.
 
 Some other resources that were useful during the creation of this project:
 
