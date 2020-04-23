@@ -3,8 +3,8 @@ import { PlanarGraph } from './src/graph.js';
 import { Vec2 } from './src/math.js';
 import { SelectionGroup, OrderedSelection } from './src/selection.js';
 
+// Load the SnapSVG library
 const snapsvg = require('snapsvg');
-const html2canvas = require('html2canvas');
 
 // Create a planar graph, which represents the crease pattern
 let g = new PlanarGraph();
@@ -23,7 +23,6 @@ const creaseAssignment = {
 };
 
 const tools = {
-	SELECT: 'select',
 	LINE: 'line',
 	LINE_SEGMENT: 'line-segment',
 	DROP_PERPENDICULAR: 'drop-perpendicular',
@@ -34,7 +33,6 @@ const tools = {
 };
 
 const helpMessages = {
-	SELECT: 'Select an existing vertex or crease',
 	LINE: 'Select two vertices to form an extended crease between them',
 	LINE_SEGMENT: 'Select two vertices to form a crease between them',
 	DROP_PERPENDICULAR: 'Select a vertex and a crease to drop a perpendicular crease from the vertex to the selected crease',
@@ -45,7 +43,6 @@ const helpMessages = {
 };
 
 let selection = {
-	'select': null,
 	'line': new OrderedSelection([new SelectionGroup('vertex', 2)], helpMessages.LINE),
 	'line-segment': new OrderedSelection([new SelectionGroup('vertex', 2)], helpMessages.LINE_SEGMENT),
 	'drop-perpendicular': new OrderedSelection([new SelectionGroup('vertex', 1), new SelectionGroup('crease', 1)], helpMessages.DROP_PERPENDICULAR),
@@ -68,28 +65,6 @@ const vertexDrawRadius = 4;
 const creaseStrokeWidth = 4;
 
 /**
- * Applies a cyclic animation to a particular attribute of an SVG DOM element
- * @param {DOM element} element - the DOM SVG element to animate
- * @param {string} attrName - the name of the attribute to animate	
- * @param {number} percent - the percent increase (or decrease) of the specified attribute
- * @param {number} timeTo - the duration of the target animation 
- * @param {number} timeFrom - the duration of the return animation
- */
-function animateCycle(element, attrName, to, timeTo=50, timeFrom=50) {
-	const from = element.attr(attrName);
-
-	let anims = [
-		function() {
-			Snap.animate(from, to, function(val) { element.attr(attrName, val);  }, timeTo, mina.easein, anims[1]); 
-		},
-		function() {
-			Snap.animate(to, from, function(val) { element.attr(attrName, val); }, timeFrom, mina.easeout);
-		}
-	];
-	anims[0]();		
-}
-
-/**
  * Animates the group of objects that are currently selectable
  */
 function notifySelectableElements() {
@@ -98,29 +73,6 @@ function notifySelectableElements() {
 	
 	s.selectAll('*').forEach(element => element.removeClass('selectable'));
 	elements.forEach(element => element.addClass('selectable'));
-
-	// const timeTo = 50;
-	// const timeFrom = 50;
-
-	// switch (className) {
-	// 	case 'vertex':
-	// 		elements.forEach(el => animateCycle(el, 'r', 5.0));
-	// 		break;
-	// 	case 'crease':
-			
-	// 		elements.forEach(element => {
-	// 			let anims = [
-	// 				function() {
-	// 					Snap.animate(4, 8, function(val) { element.attr({strokeWidth: val});  }, timeTo, mina.easein, anims[1]); 
-	// 				},
-	// 				function() {
-	// 					Snap.animate(8, 4, function(val) { element.attr({strokeWidth: val}); }, timeFrom, mina.easeout);
-	// 				}
-	// 			];
-	// 			anims[0]();	
-	// 		});
-	// 		break;
-	// }	
 }
 
 function removeSelectedClass() {
@@ -153,9 +105,6 @@ function getBBoxCorners(element) {
 
 	return [ul, ur, lr, ll];
 }
-
-
-
 
 function operate() {
 	if (tool === tools.LINE_SEGMENT) {
@@ -325,7 +274,7 @@ let callbackCreaseDoubleClicked = function() {
 	cycleCreaseAssignmet(this);
 }
 
-// Additional vertex callback functions
+// Additional vertex callback functions - the 'r' attribute isn't settable via CSS
 let callbackVertexHoverEnter = function() {
 	this.attr({'r': vertexDrawRadius * 1.25});
 }
@@ -479,9 +428,6 @@ function drawVertex(index) {
 	return svg;
 }
 
-
-
-
 function drawTooltip(x, y, text, padding) {
 	// First, create the text element
 	let svgText = s.text(x, y, text);
@@ -584,10 +530,9 @@ function handleFileAction(action) {
 			}
 		});
 
+		// Create a clickable URL and download the file
 		const fileName = "crease.svg";
-	
 		var url = "data:image/svg+xml;utf8," + encodeURIComponent(exportClone.toString());
-
 		var link = document.createElement("a");
 		link.download = fileName;
 		link.href = url;
@@ -602,8 +547,8 @@ function handleFileAction(action) {
 	}
 }
 
-
-// The DOM elements corresponding to all of the tool icons (line, line segment, perpendicular, etc.)
+// The DOM elements corresponding to all of the tool icons (line, line segment, perpendicular, etc.) and 
+// file icons (currently, just SVG export)
 const toolIcons = Array.from(document.getElementsByClassName('tool-icon'));
 const fileIcons = Array.from(document.getElementsByClassName('file-icon')); 
 
@@ -650,11 +595,13 @@ toolIcons.forEach(element => {
 fileIcons.forEach(element => {
 
 	element.addEventListener('click', function() {
+		// Deselect the previous file icon and select this one
 		deselectAll(fileIcons);
 
 		// Save, load, etc.
 		let action = this.getAttribute('op');
 		
+		// Run the appropriate commands
 		handleFileAction(action);
 		
 	});
@@ -687,33 +634,7 @@ document.addEventListener('keydown', function(event) {
     }
 });
 
-
-
 // Start the application
 setupCanvas();
 notifySelectableElements();
-
-let scale = 1.0;
-
-s.node.addEventListener('wheel', e => {
-	// Increment scale
-	scale += e.deltaY * -0.01;
-
-  	// Restrict scale
-  	scale = Math.min(Math.max(.125, scale), 4);
-
-  	// Create a new scaling matrix
-  	let matrix = new Snap.Matrix();
-  	matrix.scale(scale);
-
-  	// Apply
-  	console.log(s.children())
-  	s.children().forEach(element => {
-  		console.log(element)
-  		if (element.hasClass('vertex') || element.hasClass('crease')) {
-  			element.transform(matrix.toTransformString());
-  		}
-  	});
-})
-
 updateToolTip();

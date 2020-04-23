@@ -10,7 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "html2canvas": "^1.0.0-rc.5",
     "snapsvg": "^0.5.1"
   },
   "devDependencies": {

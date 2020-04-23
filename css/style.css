@@ -1,13 +1,5 @@
 html, body {
-
-	/*margin: 0; */
 	background-color: hsl(0, 0%, 22%);
-}
-
-#controls {
-}
-
-#graphics {
 }
 
 .header {
@@ -38,11 +30,10 @@ p {
 	align-items: center;
 }
 
-.item {
-}
+.item {}
 
-/* Add margins between pairs of items */
 .item + .item {
+	/* Add margins between pairs of items */
 	margin-left: 1%;
 }
 
@@ -50,14 +41,12 @@ p {
 }
 
 .tool-icon:hover .tool-background {
-
 	/* Light gray */
 	fill: hsl(0, 0%, 25%);
 	stroke: hsl(0, 0%, 25%);
 }
 
 .tool-icon.selected .tool-background {
-
 	/* Blue */
 	fill: hsl(217, 47%, 55%);
 	stroke: hsl(217, 47%, 55%);
@@ -65,12 +54,10 @@ p {
 
 svg .tool-tip {
 	fill: hsl(0, 0%, 89%);
-	/*animation: hideafter 5s ease forwards 1;*/
 }
 
 svg .tool-tip-background {
 	fill: hsl(221, 12%, 60%);
-	/*animation: hideafter 5s ease forwards 1;*/
 }
 
 svg .background {
@@ -105,8 +92,8 @@ svg .vertex.selected {
 	fill: hsl(0, 0%, 89%);
 }
 
-/* Whenever a vertex is selected (or selectable) and the user hovers over it */
 svg .vertex.selected:hover, .vertex.selectable:hover {
+	/* Whenever a vertex is selected (or selectable) and the user hovers over it */
 }
 
 svg .expanded {
@@ -114,7 +101,6 @@ svg .expanded {
 }
 
 svg .crease {
-
 	/* Dark gray */
 	stroke-width: 2;
 	stroke: hsl(0, 0%, 16%);
@@ -155,21 +141,3 @@ svg .crease.selected {
 	stroke: hsl(48, 100%, 50%);
 }
 
-@keyframes hideafter {
-	0% {
-		opacity: 0;
-	}
-
-	10% {
-		opacity: 1;
-	}
-
-	50% {
-		opacity: 1;
-	}
-
-	100% {
-		opacity: 0;
-	}
-
-}
