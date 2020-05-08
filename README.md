@@ -1,8 +1,8 @@
-# crease
+# Crease
 📐 A web-based crease pattern editor for origami.
 
 <p align="center">
-  <img src="assets/screenshots/bird_base.png" alt="screenshot" width="400" height="auto"/>
+  <img src="https://raw.githubusercontent.com/mwalczyk/crease/master/assets/screenshots/bird_base.png" alt="screenshot" width="400" height="auto"/>
 </p>
 
 ## Description
