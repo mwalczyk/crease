@@ -321,6 +321,8 @@ function removeCrease(element) {
     const [nodeIndices, edgeIndices] = g.removeEdge(targetIndex);
 	nodeIndices.forEach(index => drawVertex(index));
 	edgeIndices.forEach(index => drawCrease(index));
+
+	updateStats();
 }
 
 /**
@@ -396,6 +398,8 @@ function removeVertex(element) {
     const [nodeIndices, edgeIndices] = g.removeNode(targetIndex);
 	nodeIndices.forEach(index => drawVertex(index));
 	edgeIndices.forEach(index => drawCrease(index));
+
+	updateStats();
 }
 
 /**
